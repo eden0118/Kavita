@@ -1,0 +1,23 @@
+services:
+  kavita:
+    image: jvmilazz0/kavita:latest
+    container_name: kavita
+    restart: unless-stopped
+    ports:
+      - "1314:5000"
+    environment:
+      TZ: Asia/Taipei
+    volumes:
+      - ./data/config:/kavita/config
+      - type: bind
+        source: /Volumes/Books
+        target: /library
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: /Volumes/Comics
+        target: /comics
+        read_only: true
+        bind:
+          create_host_path: false
