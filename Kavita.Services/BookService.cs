@@ -60,6 +60,11 @@ public partial class BookService(
     /// </summary>
     public static readonly EpubReaderOptions BookReaderOptions = new()
     {
+        Epub3NavDocumentReaderOptions = new Epub3NavDocumentReaderOptions
+        {
+            // Fixed-layout comics can have a complete spine without an EPUB 3 NAV item.
+            IgnoreMissingNavManifestItemError = true
+        },
         PackageReaderOptions = new PackageReaderOptions
         {
             IgnoreMissingToc = true,
@@ -81,6 +86,10 @@ public partial class BookService(
 
     public static readonly EpubReaderOptions LenientBookReaderOptions = new()
     {
+        Epub3NavDocumentReaderOptions = new Epub3NavDocumentReaderOptions
+        {
+            IgnoreMissingNavManifestItemError = true
+        },
         PackageReaderOptions = new PackageReaderOptions
         {
             IgnoreMissingToc = true,

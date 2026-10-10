@@ -1,6 +1,8 @@
 services:
   kavita:
-    image: jvmilazz0/kavita:latest
+    image: kavita-local:0.9.1.4-media-parser-fix
+    build:
+      context: ./tools/media-parser-fix
     container_name: kavita
     restart: unless-stopped
     ports:

@@ -908,7 +908,8 @@ internal class PdfMetadataExtractor : IPdfMetadataExtractor
 
                     if (inUse && offset > 0)
                     {
-                        _objectOffsets[obj] = offset ;
+                        // Sections are read newest first; older /Prev entries must not replace them.
+                        _objectOffsets.TryAdd(obj, offset);
                     }
                     // Free objects (inUse == false) are not stored in the dictionary
                 }
