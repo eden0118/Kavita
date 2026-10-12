@@ -1,0 +1,177 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Kavita：手機閱讀與背景掃描架構",
+    "quality_profile": "showcase",
+    "viewBox": [
+      1380,
+      850
+    ]
+  },
+  "components": [
+    {
+      "id": "mobile",
+      "type": "frontend",
+      "label": "手機／桌面閱讀介面",
+      "sublabel": "Angular · 找書與閱讀",
+      "pos": [
+        70,
+        350
+      ],
+      "size": [
+        230,
+        100
+      ]
+    },
+    {
+      "id": "api",
+      "type": "backend",
+      "label": "Kavita API",
+      "sublabel": "ASP.NET Core · 權限與閱讀",
+      "pos": [
+        430,
+        350
+      ],
+      "size": [
+        230,
+        100
+      ]
+    },
+    {
+      "id": "media",
+      "type": "external",
+      "label": "NAS 原始檔案",
+      "sublabel": "/comics · /library · 唯讀",
+      "pos": [
+        1060,
+        350
+      ],
+      "size": [
+        250,
+        100
+      ]
+    },
+    {
+      "id": "sqlite",
+      "type": "database",
+      "label": "SQLite 資料庫",
+      "sublabel": "系列、章節與閱讀進度",
+      "pos": [
+        430,
+        90
+      ],
+      "size": [
+        230,
+        100
+      ]
+    },
+    {
+      "id": "reader",
+      "type": "backend",
+      "label": "解析與閱讀快取",
+      "sublabel": "BookService · CacheService",
+      "pos": [
+        760,
+        350
+      ],
+      "size": [
+        230,
+        100
+      ]
+    },
+    {
+      "id": "jobs",
+      "type": "backend",
+      "label": "背景工作",
+      "sublabel": "Hangfire · 掃描與備份",
+      "pos": [
+        760,
+        660
+      ],
+      "size": [
+        230,
+        100
+      ]
+    },
+    {
+      "id": "events",
+      "type": "messagebus",
+      "label": "即時狀態通知",
+      "sublabel": "SignalR · hubs/messages",
+      "pos": [
+        70,
+        90
+      ],
+      "size": [
+        230,
+        100
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "from": "mobile",
+      "to": "api",
+      "label": "HTTP :1314",
+      "labelDy": 30
+    },
+    {
+      "from": "api",
+      "to": "reader",
+      "label": "開啟章節"
+    },
+    {
+      "from": "reader",
+      "to": "media",
+      "label": "讀取原檔"
+    },
+    {
+      "from": "api",
+      "to": "sqlite",
+      "label": "查詢與保存進度"
+    },
+    {
+      "from": "api",
+      "to": "events",
+      "label": "發布工作事件",
+      "variant": "dashed"
+    },
+    {
+      "from": "events",
+      "to": "mobile",
+      "label": "推送狀態",
+      "labelDy": 100
+    },
+    {
+      "from": "reader",
+      "to": "jobs",
+      "label": "共用解析服務",
+      "variant": "dashed",
+      "labelDy": 100
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "手機操作的改善位置",
+      "items": [
+        "導覽、卡片與閱讀工具列主要在 Angular。"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "背景工作與閱讀分開驗證",
+      "items": [
+        "掃描完成不等於每本書都可讀；Media Issues 保留問題證據。"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "自架資料的保存",
+      "items": [
+        "資料庫與備份在 data/config；漫畫原檔另外備份。"
+      ]
+    }
+  ]
+}

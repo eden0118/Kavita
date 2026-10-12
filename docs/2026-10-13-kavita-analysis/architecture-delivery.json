@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "deliver",
+  "type": "architecture",
+  "input": "/Users/eden0118/Coding/Kavita/docs/2026-10-13-kavita-analysis/architecture.json",
+  "output": "/Users/eden0118/Coding/Kavita/docs/2026-10-13-kavita-analysis/architecture.html",
+  "specification": {
+    "sha256": "b9664f3ea375bd9cf8c1e91ef23f4ab827cc43c939bb03045b91ce5e26bc9cb1",
+    "bytes": 3272
+  },
+  "artifact": {
+    "sha256": "79818f74c2416930c003ad3c4f1be28476b20ce7a2cfbcb244d1252f35aed883",
+    "bytes": 709626
+  },
+  "validation": {
+    "checksPassed": 9,
+    "checkCount": 9,
+    "compositionProfile": "showcase",
+    "compositionStatus": "pass",
+    "errors": 0,
+    "warnings": 0
+  }
+}
