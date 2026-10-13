@@ -237,6 +237,7 @@ export class BookReaderComponent implements OnInit, AfterViewInit, OnDestroy, Af
   seriesTitle = signal('');
   private initializationId = 0;
   private readerSettingsEffectsInitialized = false;
+  private retryCurrentPage = false;
   /**
    * Title of the book. Rendered in action bar
    */
@@ -990,6 +991,7 @@ export class BookReaderComponent implements OnInit, AfterViewInit, OnDestroy, Af
 
   async init(firstLoad: boolean) {
     const initializationId = ++this.initializationId;
+    this.retryCurrentPage = false;
     this.loadError.set(false);
     this.isLoading.set(true);
     this.nextChapterId = CHAPTER_ID_NOT_FETCHED;
@@ -1033,10 +1035,16 @@ export class BookReaderComponent implements OnInit, AfterViewInit, OnDestroy, Af
 
   retryLoading() {
     if (this.isLoading()) return;
+    if (this.retryCurrentPage) {
+      this.loadError.set(false);
+      this.loadPage();
+      return;
+    }
     this.init(true);
   }
 
-  private showLoadError() {
+  private showLoadError(retryCurrentPage = false) {
+    this.retryCurrentPage = retryCurrentPage;
     this.isLoading.set(false);
     this.loadError.set(true);
     this.actionBarVisible.set(true);
@@ -1372,7 +1380,7 @@ export class BookReaderComponent implements OnInit, AfterViewInit, OnDestroy, Af
 
         this.firstLoad = false;
       });
-    }, error: () => this.showLoadError()});
+    }, error: () => this.showLoadError(true)});
   }
 
   /**

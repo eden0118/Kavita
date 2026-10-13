@@ -169,7 +169,7 @@ export class PdfReaderComponent implements OnInit, OnDestroy {
               this.closeReader();
               break;
             case KeyBindTarget.FirstPage:
-              this.currentPage = 0;
+              this.currentPage = 1;
               this.cdRef.markForCheck();
               break;
             case KeyBindTarget.LastPage:
