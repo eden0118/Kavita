@@ -1,9 +1,47 @@
 <ng-container *transloco="let t; prefix: 'pdf-reader'">
   @let user = accountService.currentUser();
   @if (user) {
-    <div class="{{theme}}" #container>
+    <div class="{{theme}} pdf-reader-shell" [class.show-pdf-tools]="showPdfTools" #container>
 
-      @if (isLoading && !disableLoadingIndicator()) {
+      <div class="mobile-pdf-toolbar" [ngStyle]="{'background-color': backgroundColor, 'color': fontColor}">
+        <button type="button" class="btn btn-icon" (click)="closeReader()" [attr.aria-label]="t('close-reader-alt')">
+          <i class="fa fa-arrow-left" aria-hidden="true"></i>
+        </button>
+        <div class="pdf-reading-context">
+          <span>{{ seriesTitle || bookTitle || t('loading-message') }}</span>
+          <small>{{ bookTitle }}</small>
+        </div>
+        <div ngbDropdown placement="bottom-end" container="body">
+          <button type="button" class="btn btn-icon" ngbDropdownToggle [attr.aria-label]="t('more-options')">
+            <i class="fa fa-ellipsis-v" aria-hidden="true"></i>
+          </button>
+          <div ngbDropdownMenu class="pdf-mobile-menu">
+            @if (incognitoMode) { <span class="dropdown-header">{{ t('incognito-mode') }}</span> }
+            <label class="dropdown-item" for="pdf-mobile-page">{{ t('page-number') }}</label>
+            <input #pageInput id="pdf-mobile-page" class="form-control" type="number" min="1" [max]="maxPages" [value]="currentPage"
+                   [disabled]="isChapterLoading || loadError" (change)="setPage(pageInput.valueAsNumber)" />
+            <button ngbDropdownItem [attr.aria-pressed]="showPdfTools" (click)="showPdfTools = !showPdfTools">{{ t('advanced-pdf-tools') }}</button>
+            <button ngbDropdownItem (click)="zoomSetting = 'page-width'">{{ t('fit-width') }}</button>
+            <button ngbDropdownItem (click)="toggleTheme()">{{ t('dark-theme-alt') }} / {{ t('light-theme-alt') }}</button>
+            <button ngbDropdownItem (click)="toggleScrollMode()">{{ scrollMode | pdfScrollModeType }}</button>
+            <button ngbDropdownItem (click)="toggleSpreadMode()">{{ spreadMode | pdfSpreadType }}</button>
+            <button ngbDropdownItem (click)="openShortcutModal()">{{ t('shortcuts-menu-alt') }}</button>
+            <button ngbDropdownItem [disabled]="adjacentLoading || adjacentError || previousChapterId === null || previousChapterId < 1 || chapterNavigationLoading"
+                    (click)="openChapter(previousChapterId)">{{ t('previous-chapter') }}</button>
+            <button ngbDropdownItem [disabled]="adjacentLoading || adjacentError || nextChapterId === null || nextChapterId < 1 || chapterNavigationLoading"
+                    (click)="openChapter(nextChapterId)">{{ t('next-chapter') }}</button>
+          </div>
+        </div>
+      </div>
+      @if (loadError) {
+        <section class="pdf-reader-error" role="alert">
+          <h2>{{ t('load-error') }}</h2>
+          <p>{{ t('load-error-description') }}</p>
+          <button class="btn btn-primary" (click)="init()">{{ t('retry') }}</button>
+          <button class="btn btn-secondary ms-2" (click)="closeReader()">{{ t('return-to-library') }}</button>
+        </section>
+      }
+      @if (isLoading && !loadError && !disableLoadingIndicator()) {
         <div class="loading-message-container">
           <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
           {{t('loading-message')}}
@@ -15,10 +53,12 @@
         </div>
       }
 
+      @if (!isChapterLoading && !loadError) {
+      <div class="pdf-reader-viewer">
       <ngx-extended-pdf-viewer #pdfViewer
         [src]="readerService.downloadPdf(this.chapterId)"
         [authorization]="user.token ? 'Bearer ' + user.token : ''"
-        height="100vh"
+        height="100%"
         [(page)]="currentPage"
         [textLayer]="true"
         [showHandToolButton]="true"
@@ -41,11 +81,34 @@
         (pageChange)="saveProgress()"
         (pdfLoadingStarts)="updateLoading(true)"
         (pdfLoaded)="updateLoading(false)"
+        (pdfLoadingFailed)="showLoadError()"
         (progress)="updateLoadProgress($event)"
         (zoomChange)="calcScrollbarNeeded()"
         (findbarVisibleChange)="updateSearchOpen($event)"
        />
-
+      </div>
+      }
+      @if (!loadError && !isChapterLoading) {
+        <div class="pdf-chapter-navigation" [ngStyle]="{'background-color': backgroundColor, 'color': fontColor}">
+          <span>{{ currentPage }} / {{ maxPages }}</span>
+          @if (currentPage >= maxPages && maxPages > 0) {
+            @if (adjacentLoading || chapterNavigationLoading) {
+              <span role="status">{{ t('chapter-loading') }}</span>
+            } @else if (!adjacentError && nextChapterId !== null && nextChapterId < 1) {
+              <span>{{ t('reading-complete') }}</span>
+            }
+          }
+          @if (adjacentError) {
+            <span role="alert">{{ t('chapter-navigation-error') }}</span>
+            <button class="btn btn-secondary" (click)="loadAdjacentChapters()">{{ t('retry') }}</button>
+          } @else {
+            <button class="btn btn-secondary" [disabled]="adjacentLoading || previousChapterId === null || previousChapterId < 1 || chapterNavigationLoading"
+                    (click)="openChapter(previousChapterId)">{{ t('previous-chapter') }}</button>
+            <button class="btn btn-primary" [disabled]="adjacentLoading || nextChapterId === null || nextChapterId < 1 || chapterNavigationLoading"
+                    (click)="openChapter(nextChapterId)">{{ t('next-chapter') }}</button>
+          }
+        </div>
+      }
       @if (scrollMode === ScrollModeType.page && !isLoading) {
         @if (!isSearchOpen) {
           <div class="left" (click)="prevPage()"></div>

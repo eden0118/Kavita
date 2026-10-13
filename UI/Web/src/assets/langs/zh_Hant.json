@@ -2166,7 +2166,12 @@
     "return-to-library": "返回書庫",
     "next-chapter": "下一章",
     "previous-chapter": "上一章",
-    "chapter-loading": "正在開啟章節…"
+    "chapter-loading": "正在開啟章節…",
+    "page-number": "頁碼",
+    "fit-width": "符合頁寬",
+    "reading-complete": "已到最後一章",
+    "chapter-navigation-error": "無法載入章節導覽。",
+    "advanced-pdf-tools": "進階 PDF 工具"
   },
   "pdf-spread-mode-pipe": {
     "even": "偶數跨頁",

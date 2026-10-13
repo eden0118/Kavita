@@ -1448,7 +1448,12 @@
     "return-to-library": "返回书库",
     "next-chapter": "下一章",
     "previous-chapter": "上一章",
-    "chapter-loading": "正在打开章节…"
+    "chapter-loading": "正在打开章节…",
+    "page-number": "页码",
+    "fit-width": "适合页宽",
+    "reading-complete": "已到最后一章",
+    "chapter-navigation-error": "无法加载章节导航。",
+    "advanced-pdf-tools": "高级 PDF 工具"
   },
   "pdf-layout-mode-pipe": {
     "single": "单页",

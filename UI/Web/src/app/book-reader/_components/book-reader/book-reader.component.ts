@@ -292,7 +292,7 @@ export class BookReaderComponent implements OnInit, AfterViewInit, OnDestroy, Af
   /**
    * Offset for drawer and rendering canvas. Fixed to 62px.
    */
-  topOffset: number = 38;
+  topOffset: number = 44;
   /**
    * Used for showing/hiding bottom action bar. Calculates if there is enough scroll to show it.
    * Will hide if all content in book is absolute positioned
@@ -1679,6 +1679,7 @@ export class BookReaderComponent implements OnInit, AfterViewInit, OnDestroy, Af
    * @param direction Direction to move
    */
   movePage(direction: PAGING_DIRECTION) {
+    if (this.isLoading() || this.loadError()) return;
     switch (direction) {
       case PAGING_DIRECTION.BACKWARDS:
         this.prevPage();

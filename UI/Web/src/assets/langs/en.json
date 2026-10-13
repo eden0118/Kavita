@@ -3165,7 +3165,12 @@
     "return-to-library": "Return to library",
     "next-chapter": "Next chapter",
     "previous-chapter": "Previous chapter",
-    "chapter-loading": "Opening chapter…"
+    "chapter-loading": "Opening chapter…",
+    "page-number": "Page number",
+    "fit-width": "Fit to width",
+    "reading-complete": "End of series",
+    "chapter-navigation-error": "Unable to load chapter navigation.",
+    "advanced-pdf-tools": "Advanced PDF tools"
   },
   "pdf-layout-mode-pipe": {
     "single": "Single Page",

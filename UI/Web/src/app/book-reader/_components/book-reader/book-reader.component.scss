@@ -484,4 +484,7 @@ $pagination-opacity: 0;
   .action-bar button { min-width: 44px; min-height: 44px; }
   .book-title-text { font-size: 0.875rem; }
 }
-:host ::ng-deep .reader-tools-menu .dropdown-item { min-height: 44px; }
+::ng-deep .reader-tools-menu .dropdown-item { min-height: 44px; }
+
+.reader-context-row { display: flex; align-items: center; justify-content: center; gap: 4px; }
+.reader-context-text { min-width: 0; }

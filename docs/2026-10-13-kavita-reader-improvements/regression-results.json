@@ -1,0 +1,25 @@
+{
+  "checks": [
+    "login to existing backend"
+  ],
+  "failures": [],
+  "network": [
+    {
+      "path": "/api/image/user-cover",
+      "status": 404
+    },
+    {
+      "path": "/api/server/activity",
+      "status": 404
+    },
+    {
+      "path": "/api/server/activity",
+      "status": 404
+    },
+    {
+      "path": "/api/image/user-cover",
+      "status": 404
+    }
+  ],
+  "error": "Error: failed to find element matching selector \".mobile-controls[aria-label]\""
+}

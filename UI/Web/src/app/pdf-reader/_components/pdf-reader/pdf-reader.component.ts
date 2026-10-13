@@ -22,8 +22,8 @@ import {
   SpreadType
 } from 'ngx-extended-pdf-viewer';
 import {ToastrService} from '@openng/ngx-toastr';
-import {take} from 'rxjs';
-import {NgbTooltip} from '@ng-bootstrap/ng-bootstrap';
+import {firstValueFrom, forkJoin, take} from 'rxjs';
+import {NgbDropdownModule, NgbTooltip} from '@ng-bootstrap/ng-bootstrap';
 import {DOCUMENT, NgStyle} from '@angular/common';
 import {translate, TranslocoDirective} from "@jsverse/transloco";
 import {PdfLayoutMode} from "../../../_models/preferences/pdf-layout-mode";
@@ -60,7 +60,7 @@ const KEYBIND_TARGETS = [
   styleUrls: ['./pdf-reader.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [NgStyle, NgxExtendedPdfViewerModule, NgbTooltip, TranslocoDirective,
-    PdfScrollModeTypePipe, PdfSpreadTypePipe]
+    PdfScrollModeTypePipe, PdfSpreadTypePipe, NgbDropdownModule]
 })
 export class PdfReaderComponent implements OnInit, OnDestroy {
 
@@ -131,6 +131,16 @@ export class PdfReaderComponent implements OnInit, OnDestroy {
    */
   disableLoadingIndicator = computed(() => this.accountService.userPreferences()?.dataSaver);
   isLoading: boolean = true;
+  isChapterLoading = true;
+  loadError = false;
+  seriesTitle = '';
+  showPdfTools = false;
+  nextChapterId: number | null = null;
+  previousChapterId: number | null = null;
+  adjacentLoading = true;
+  adjacentError = false;
+  chapterNavigationLoading = false;
+  private initializationId = 0;
   /**
    * How much of the current document is loaded
    */
@@ -238,7 +248,16 @@ export class PdfReaderComponent implements OnInit, OnDestroy {
 
     window.addEventListener('keydown', this.downloadHandler, { capture: true });
 
-    this.init();
+    this.route.paramMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(params => {
+      this.libraryId = Number(params.get('libraryId'));
+      this.seriesId = Number(params.get('seriesId'));
+      this.chapterId = Number(params.get('chapterId'));
+      this.incognitoMode = this.route.snapshot.queryParamMap.get('incognitoMode') === 'true';
+      const readingListId = this.route.snapshot.queryParamMap.get('readingListId');
+      this.readingListMode = readingListId !== null;
+      this.readingListId = readingListId === null ? CHAPTER_ID_DOESNT_EXIST : Number(readingListId);
+      this.init();
+    });
   }
 
   private downloadHandler = (event: KeyboardEvent) => {
@@ -254,7 +273,7 @@ export class PdfReaderComponent implements OnInit, OnDestroy {
   calcScrollbarNeeded() {
     const viewContainer = this.document.querySelector('#viewerContainer');
     if (viewContainer == null) return;
-    this.scrollbarNeeded = viewContainer.scrollHeight > this.container()?.nativeElement?.clientHeight;
+    this.scrollbarNeeded = viewContainer.scrollHeight > viewContainer.clientHeight;
     this.cdRef.markForCheck();
   }
 
@@ -312,33 +331,100 @@ export class PdfReaderComponent implements OnInit, OnDestroy {
     this.theme = this.convertPdfTheme(this.readingProfile.pdfTheme || PdfTheme.Dark);
   }
 
-  init() {
+  async init() {
+    const initializationId = ++this.initializationId;
+    this.isChapterLoading = true;
+    this.isLoading = true;
+    this.loadError = false;
+    this.loadPercent = 0;
+    this.nextChapterId = null;
+    this.previousChapterId = null;
+    this.adjacentLoading = true;
+    this.adjacentError = false;
+    this.currentPage = 1;
     this.backgroundColor = this.themeMap[this.theme].background;
-    this.fontColor = this.themeMap[this.theme].font; // TODO: Move this to an observable or something
-
-    this.calcScrollbarNeeded();
-
-    this.bookService.getBookInfo(this.chapterId).subscribe(info => {
+    this.fontColor = this.themeMap[this.theme].font;
+    this.cdRef.markForCheck();
+    try {
+      const {info, progress, chapter} = await firstValueFrom(forkJoin({
+        info: this.bookService.getBookInfo(this.chapterId),
+        progress: this.readerService.getProgress(this.chapterId),
+        chapter: this.seriesService.getChapter(this.chapterId)
+      }).pipe(takeUntilDestroyed(this.destroyRef)));
+      if (initializationId !== this.initializationId || this.destroyRef.destroyed) return;
+      if (chapter.pages < 1) throw new Error('Chapter has no pages');
       this.volumeId = info.volumeId;
+      this.chapter = chapter;
       this.bookTitle = info.bookTitle;
-      this.cdRef.markForCheck();
-    });
-
-    this.readerService.getProgress(this.chapterId).subscribe(progress => {
-      this.currentPage = progress.pageNum || 1;
-      this.cdRef.markForCheck();
-    });
-
-    this.seriesService.getChapter(this.chapterId).subscribe(chapter => {
+      this.seriesTitle = info.seriesName;
       this.maxPages = chapter.pages;
-
-      if (this.currentPage >= this.maxPages) {
-        this.currentPage = this.maxPages - 1;
-        // Don't save progress on first load to avoid session creation, wait for a page change event
-      }
+      this.currentPage = Math.min(this.maxPages, Math.max(1, progress.pageNum || 1));
+      this.isChapterLoading = false;
+      this.loadAdjacentChapters();
       this.cdRef.markForCheck();
+    } catch {
+      if (initializationId !== this.initializationId || this.destroyRef.destroyed) return;
+      this.showLoadError();
+    }
+  }
+
+  showLoadError() {
+    this.isLoading = false;
+    this.isChapterLoading = false;
+    this.loadError = true;
+    this.cdRef.markForCheck();
+  }
+
+  loadAdjacentChapters() {
+    const chapterId = this.chapterId;
+    this.adjacentLoading = true;
+    this.adjacentError = false;
+    forkJoin({
+      next: this.readerService.getNextChapter(this.seriesId, this.volumeId, chapterId, this.readingListId),
+      previous: this.readerService.getPrevChapter(this.seriesId, this.volumeId, chapterId, this.readingListId)
+    }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: adjacent => {
+        if (chapterId !== this.chapterId) return;
+        this.nextChapterId = adjacent.next;
+        this.previousChapterId = adjacent.previous;
+        this.adjacentLoading = false;
+        this.cdRef.markForCheck();
+      },
+      error: () => {
+        if (chapterId !== this.chapterId) return;
+        this.adjacentLoading = false;
+        this.adjacentError = true;
+        this.cdRef.markForCheck();
+      }
     });
-    setTimeout(() => this.readerService.enableWakeLock(this.container().nativeElement), 1000);
+  }
+
+  async openChapter(chapterId: number | null) {
+    if (!chapterId || chapterId < 1 || this.chapterNavigationLoading) return;
+    this.chapterNavigationLoading = true;
+    this.adjacentError = false;
+    this.cdRef.markForCheck();
+    try {
+      const info = await firstValueFrom(this.readerService.getChapterInfo(chapterId).pipe(takeUntilDestroyed(this.destroyRef)));
+      const navigated = await this.router.navigate(
+        this.readerService.getNavigationArray(info.libraryId, info.seriesId, chapterId, info.seriesFormat),
+        {queryParams: this.readerService.getQueryParamsObject(this.incognitoMode, this.readingListMode, this.readingListId)}
+      );
+      if (!navigated) throw new Error('Chapter navigation was cancelled');
+    } catch {
+      if (!this.destroyRef.destroyed) this.adjacentError = true;
+    } finally {
+      if (!this.destroyRef.destroyed) {
+        this.chapterNavigationLoading = false;
+        this.cdRef.markForCheck();
+      }
+    }
+  }
+
+  setPage(page: number) {
+    if (!Number.isFinite(page) || this.isChapterLoading || this.loadError) return;
+    this.currentPage = Math.min(this.maxPages, Math.max(1, Math.trunc(page)));
+    this.cdRef.markForCheck();
   }
 
   /**
@@ -405,7 +491,7 @@ export class PdfReaderComponent implements OnInit, OnDestroy {
   }
 
   saveProgress() {
-    if (this.incognitoMode) return;
+    if (this.incognitoMode || this.isChapterLoading || this.loadError || this.chapterNavigationLoading) return;
     this.readerService.saveProgress(this.libraryId, this.seriesId, this.volumeId, this.chapterId, this.currentPage).subscribe();
   }
 
@@ -420,6 +506,7 @@ export class PdfReaderComponent implements OnInit, OnDestroy {
 
   updateLoading(state: boolean) {
     this.isLoading = state;
+    if (!state) this.readerService.enableWakeLock(this.container().nativeElement);
     this.cdRef.markForCheck();
   }
 
@@ -436,7 +523,7 @@ export class PdfReaderComponent implements OnInit, OnDestroy {
 
   prevPage() {
      this.currentPage--;
-     if (this.currentPage < 0) this.currentPage = 0;
+     if (this.currentPage < 1) this.currentPage = 1;
      this.cdRef.markForCheck();
   }
 

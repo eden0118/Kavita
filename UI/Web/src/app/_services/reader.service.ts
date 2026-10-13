@@ -1,7 +1,7 @@
 import {HttpClient} from '@angular/common/http';
-import {effect, inject, Injectable, signal} from '@angular/core';
-import {DOCUMENT, Location} from '@angular/common';
-import {Router} from '@angular/router';
+import {DestroyRef, effect, inject, Injectable, signal} from '@angular/core';
+import {DOCUMENT} from '@angular/common';
+import {NavigationStart, Router} from '@angular/router';
 import {environment} from '../../environments/environment';
 import {ChapterInfo} from '../manga-reader/_models/chapter-info';
 import {Chapter} from '../_models/chapter';
@@ -24,7 +24,8 @@ import {SeriesFilterField} from "../_models/metadata/v2/series-filter-field";
 import {ModalService, TypedModalRef} from "./modal.service";
 import {catchError, map, merge, Observable, of, switchMap, tap} from "rxjs";
 import {ListSelectModalComponent} from "../shared/_components/list-select-modal/list-select-modal.component";
-import {take, takeUntil} from "rxjs/operators";
+import {filter, take, takeUntil} from "rxjs/operators";
+import {takeUntilDestroyed} from "@angular/core/rxjs-interop";
 import {SeriesService} from "./series.service";
 import {Series} from "../_models/series";
 import {RereadPrompt} from "../_models/readers/reread-prompt";
@@ -51,7 +52,6 @@ export const CHAPTER_ID_NOT_FETCHED = -2;
 export class ReaderService {
 
   private readonly router = inject(Router);
-  private readonly location = inject(Location);
   private readonly accountService = inject(AccountService);
   private readonly toastr = inject(ToastrService);
   private readonly httpClient = inject(HttpClient);
@@ -67,12 +67,26 @@ export class ReaderService {
 
 
   private noSleep: NoSleep = new NoSleep();
+  private readerEntry: {url: string; seriesId: number; scrollY: number; focusId: string | null} | null = null;
+  private readonly destroyRef = inject(DestroyRef);
   shortCutModalOpen = signal(false);
   shortCutModalRef: TypedModalRef<ShortcutsModalComponent> | undefined;
 
 
 
   constructor() {
+    this.router.events.pipe(
+      filter((event): event is NavigationStart => event instanceof NavigationStart),
+      takeUntilDestroyed(this.destroyRef)
+    ).subscribe(event => {
+      const target = event.url.match(/^\/library\/\d+\/series\/(\d+)\/(?:book|pdf|manga)\/\d+/);
+      if (!target) return;
+      if (/\/(?:book|pdf|manga)\/\d+/.test(this.router.url)) return;
+      const url = this.router.url;
+      this.readerEntry = url !== '/' && !url.startsWith('/login')
+        ? {url, seriesId: Number(target[1]), scrollY: window.scrollY, focusId: this.document.activeElement?.id || null}
+        : null;
+    });
     effect(() => {
       const apiKey = this.accountService.currentUserGenericApiKey();
       if (apiKey) {
@@ -380,12 +394,16 @@ export class ReaderService {
       return
     }
 
-    if (window.history.length > 1) {
-      this.location.back();
-      return;
-    }
-
-    this.router.navigateByUrl(`/library/${libraryId}/series/${seriesId}/chapter/${chapterId}`);
+    const entry = this.readerEntry?.seriesId === seriesId ? this.readerEntry : null;
+    this.readerEntry = null;
+    const target = entry?.url || `/library/${libraryId}/series/${seriesId}`;
+    this.router.navigateByUrl(target).then(navigated => {
+      if (!navigated || !entry) return;
+      requestAnimationFrame(() => {
+        if (entry.focusId) this.document.getElementById(entry.focusId)?.focus({preventScroll: true});
+        window.scrollTo({top: entry.scrollY, behavior: 'instant'});
+      });
+    });
   }
 
   removePersonalToc(chapterId: number, pageNumber: number, title: string) {
