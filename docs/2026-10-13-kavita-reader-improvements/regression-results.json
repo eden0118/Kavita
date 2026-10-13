@@ -1,6 +1,16 @@
 {
   "checks": [
-    "login to existing backend"
+    "login to existing backend",
+    "EPUB mobile containment and 44px return control",
+    "EPUB visible buttons have accessible names",
+    "EPUB more menu has 44px text actions and Escape stays in reader",
+    "EPUB next page",
+    "EPUB page error and retry",
+    "EPUB info error and retry",
+    "direct EPUB close returns to its own series",
+    "PDF mobile containment and 44px return control",
+    "PDF page number control changes page",
+    "PDF desktop toolbar retained"
   ],
   "failures": [],
   "network": [
@@ -19,7 +29,39 @@
     {
       "path": "/api/image/user-cover",
       "status": 404
+    },
+    {
+      "path": "/api/book/8217/book-page",
+      "status": 500
+    },
+    {
+      "path": "/api/server/activity",
+      "status": 404
+    },
+    {
+      "path": "/api/image/user-cover",
+      "status": 404
+    },
+    {
+      "path": "/api/book/8217/book-info",
+      "status": 500
+    },
+    {
+      "path": "/api/server/activity",
+      "status": 404
+    },
+    {
+      "path": "/api/image/user-cover",
+      "status": 404
+    },
+    {
+      "path": "/api/server/activity",
+      "status": 404
+    },
+    {
+      "path": "/api/image/user-cover",
+      "status": 404
     }
   ],
-  "error": "Error: failed to find element matching selector \".mobile-controls[aria-label]\""
+  "error": "Cannot read properties of null (reading 'click')"
 }

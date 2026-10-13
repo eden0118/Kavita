@@ -1,4 +1,4 @@
-import {HttpClient} from '@angular/common/http';
+import {HttpClient, HttpContext} from '@angular/common/http';
 import {inject, Injectable} from '@angular/core';
 import {environment} from '../../environments/environment';
 import {ServerInfoSlim} from '../admin/_models/server-info';
@@ -8,6 +8,7 @@ import {KavitaMediaError} from '../admin/_models/media-error';
 import {TextResonse} from "../_types/text-response";
 import {map} from "rxjs/operators";
 import {ActivitySnapshot} from '../_models/activity/activity-snapshot';
+import {OPTIONAL_ENDPOINT} from '../_types/optional-endpoint';
 
 export enum TaskMethodNames {
   RunMetadataMappings = 'RunMetadataMappings'
@@ -73,7 +74,9 @@ export class ServerService {
   }
 
   getActivity() {
-    return this.http.get<ActivitySnapshot>(this.baseUrl + 'server/activity');
+    return this.http.get<ActivitySnapshot>(this.baseUrl + 'server/activity', {
+      context: new HttpContext().set(OPTIONAL_ENDPOINT, true),
+    });
   }
 
   convertMedia() {

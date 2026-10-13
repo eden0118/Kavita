@@ -12,6 +12,7 @@ export class ActivitySnapshotService {
   private readonly destroyRef = inject(DestroyRef);
 
   private readonly requests = new Subject<void>();
+  private unsupported = false;
   private _result = signal<ActivitySnapshotResult | null>(null);
   readonly result = this._result.asReadonly();
   readonly snapshot = computed(() => this._result()?.snapshot ?? null);
@@ -22,7 +23,10 @@ export class ActivitySnapshotService {
         const requestedAtMs = Date.now();
         return this.serverService.getActivity().pipe(
           map(snapshot => ({snapshot, requestedAtMs})),
-          catchError(() => EMPTY),
+          catchError(error => {
+            if (error.status === 404) this.unsupported = true;
+            return EMPTY;
+          }),
         );
       }),
       takeUntilDestroyed(this.destroyRef),
@@ -30,6 +34,6 @@ export class ActivitySnapshotService {
   }
 
   refresh() {
-    this.requests.next();
+    if (!this.unsupported) this.requests.next();
   }
 }

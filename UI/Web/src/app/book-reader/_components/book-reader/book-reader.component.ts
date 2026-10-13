@@ -1181,9 +1181,13 @@ export class BookReaderComponent implements OnInit, AfterViewInit, OnDestroy, Af
     this.isLoading.set(true);
 
     if (this.nextChapterId === CHAPTER_ID_NOT_FETCHED || this.nextChapterId === this.chapterId) {
-      this.readerService.getNextChapter(this.seriesId, this.volumeId, this.chapterId, this.readingListId).subscribe(chapterId => {
-        this.nextChapterId = chapterId;
-        this.loadChapter(chapterId, 'Next');
+      this.readerService.getNextChapter(this.seriesId, this.volumeId, this.chapterId, this.readingListId)
+        .pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+        next: chapterId => {
+          this.nextChapterId = chapterId;
+          this.loadChapter(chapterId, 'Next');
+        },
+        error: () => this.showLoadError(),
       });
       return;
     }
@@ -1213,9 +1217,13 @@ export class BookReaderComponent implements OnInit, AfterViewInit, OnDestroy, Af
     }
 
     if (this.prevChapterId === CHAPTER_ID_NOT_FETCHED || this.prevChapterId === this.chapterId && !this.prevChapterPrefetched) {
-      this.readerService.getPrevChapter(this.seriesId, this.volumeId, this.chapterId, this.readingListId).subscribe(chapterId => {
-        this.prevChapterId = chapterId;
-        this.loadChapter(chapterId, 'Prev');
+      this.readerService.getPrevChapter(this.seriesId, this.volumeId, this.chapterId, this.readingListId)
+        .pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+        next: chapterId => {
+          this.prevChapterId = chapterId;
+          this.loadChapter(chapterId, 'Prev');
+        },
+        error: () => this.showLoadError(),
       });
     } else {
       this.loadChapter(this.prevChapterId, 'Prev');

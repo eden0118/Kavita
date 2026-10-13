@@ -8,6 +8,7 @@ import {AccountService} from '../_services/account.service';
 import {translate, TranslocoService} from "@jsverse/transloco";
 import {AUTH_URL_KEY} from "../_guards/auth.guard";
 import {APP_BASE_HREF} from "@angular/common";
+import {OPTIONAL_ENDPOINT} from '../_types/optional-endpoint';
 
 export const errorInterceptor: HttpInterceptorFn = (req, next) => {
   const router = inject(Router);
@@ -33,7 +34,7 @@ export const errorInterceptor: HttpInterceptorFn = (req, next) => {
           handleForbiddenError(error, toastr);
           break;
         case 404:
-          handleNotFound(toastr);
+          if (!req.context.get(OPTIONAL_ENDPOINT)) handleNotFound(toastr);
           break;
         case 500:
           handleServerException(error, toastr);

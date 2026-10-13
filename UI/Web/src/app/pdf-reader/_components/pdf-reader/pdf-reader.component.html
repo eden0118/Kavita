@@ -11,11 +11,13 @@
           <span>{{ seriesTitle || bookTitle || t('loading-message') }}</span>
           <small>{{ bookTitle }}</small>
         </div>
-        <div ngbDropdown placement="bottom-end" container="body">
-          <button type="button" class="btn btn-icon" ngbDropdownToggle [attr.aria-label]="t('more-options')">
+        <div ngbDropdown #pdfTools="ngbDropdown" placement="bottom-end" container="body"
+             (keydown.escape)="pdfTools.close(); $event.stopPropagation()">
+          <button #pdfToolsToggle type="button" class="btn btn-icon" ngbDropdownToggle [attr.aria-label]="t('more-options')">
             <i class="fa fa-ellipsis-v" aria-hidden="true"></i>
           </button>
-          <div ngbDropdownMenu class="pdf-mobile-menu">
+          <div ngbDropdownMenu class="pdf-mobile-menu" (keydown)="$event.stopPropagation()"
+               (keydown.escape)="pdfTools.close(); pdfToolsToggle.focus()">
             @if (incognitoMode) { <span class="dropdown-header">{{ t('incognito-mode') }}</span> }
             <label class="dropdown-item" for="pdf-mobile-page">{{ t('page-number') }}</label>
             <input #pageInput id="pdf-mobile-page" class="form-control" type="number" min="1" [max]="maxPages" [value]="currentPage"
@@ -109,7 +111,7 @@
           }
         </div>
       }
-      @if (scrollMode === ScrollModeType.page && !isLoading) {
+      @if (scrollMode === ScrollModeType.page && !isLoading && !isChapterLoading && !loadError) {
         @if (!isSearchOpen) {
           <div class="left" (click)="prevPage()"></div>
           <div class="{{scrollbarNeeded ? 'right-with-scrollbar' : 'right'}}" (click)="nextPage()"></div>
