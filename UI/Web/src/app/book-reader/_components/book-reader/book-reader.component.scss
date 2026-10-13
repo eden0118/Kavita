@@ -10,7 +10,7 @@
 
 $dark-form-background-no-opacity: rgb(1, 4, 9);
 $primary-color: #0062cc;
-$action-bar-height: 2.375rem;
+$action-bar-height: 2.75rem;
 
 .reader-container {
   &::-webkit-scrollbar {
@@ -96,11 +96,14 @@ $action-bar-height: 2.375rem;
 /* Mobile - 2 columns */
 @media (max-width: 875px) {
   .top-action-bar {
-    grid-template-columns: auto 1fr;
+    grid-template-columns: 44px minmax(0, 1fr) 44px;
+    gap: 8px;
   }
 
   .center-group {
-    display: none;
+    display: block;
+    min-width: 0;
+    overflow: hidden;
   }
 
   .right-group {
@@ -455,3 +458,30 @@ $pagination-opacity: 0;
 ::ng-deep .book-content .tooltip-inner {
   border: none !important;
 }
+
+.mobile-controls { display: none; }
+.reader-chapter-text {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.75rem;
+}
+.reader-error {
+  position: absolute;
+  inset: 4rem 1rem auto;
+  z-index: 20;
+  text-align: center;
+  padding: 1.5rem;
+  background: var(--br-actionbar-bg-color);
+  border: 1px solid var(--body-text-color);
+  border-radius: 0.5rem;
+  h2 { font-size: 1.25rem; }
+}
+@media (max-width: 875px) {
+  .desktop-controls { display: none !important; }
+  .mobile-controls { display: block; }
+  .action-bar button { min-width: 44px; min-height: 44px; }
+  .book-title-text { font-size: 0.875rem; }
+}
+:host ::ng-deep .reader-tools-menu .dropdown-item { min-height: 44px; }

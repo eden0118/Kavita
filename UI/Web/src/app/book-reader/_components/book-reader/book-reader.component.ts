@@ -27,7 +27,7 @@ import {firstValueFrom, forkJoin, fromEvent, merge, of, switchMap} from 'rxjs';
 import {catchError, debounceTime, distinctUntilChanged, filter, take, tap} from 'rxjs/operators';
 import {takeUntilDestroyed} from "@angular/core/rxjs-interop";
 import { Tooltip } from 'bootstrap';
-import {NgbTooltip} from '@ng-bootstrap/ng-bootstrap';
+import {NgbDropdownModule, NgbTooltip} from '@ng-bootstrap/ng-bootstrap';
 import {BookLineOverlayComponent} from "../book-line-overlay/book-line-overlay.component";
 import {translate, TranslocoDirective} from "@jsverse/transloco";
 import {ReadingProfile} from "../../../_models/preferences/reading-profiles";
@@ -134,7 +134,7 @@ const KEYBIND_TARGETS = [
   templateUrl: './book-reader.component.html',
   styleUrls: ['./book-reader.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [NgTemplateOutlet, NgStyle, NgClass, NgbTooltip,
+  imports: [NgTemplateOutlet, NgStyle, NgClass, NgbTooltip, NgbDropdownModule,
     BookLineOverlayComponent, TranslocoDirective, ColumnLayoutClassPipe,
     WritingStyleClassPipe, ReadTimeLeftPipe, PercentPipe, NgxSliderModule],
   providers: [EpubReaderSettingsService, LayoutMeasurementService],
@@ -233,6 +233,10 @@ export class BookReaderComponent implements OnInit, AfterViewInit, OnDestroy, Af
    * If we are loading from backend
    */
   isLoading = signal<boolean>(true);
+  loadError = signal(false);
+  seriesTitle = signal('');
+  private initializationId = 0;
+  private readerSettingsEffectsInitialized = false;
   /**
    * Title of the book. Rendered in action bar
    */
@@ -985,48 +989,58 @@ export class BookReaderComponent implements OnInit, AfterViewInit, OnDestroy, Af
   }
 
   async init(firstLoad: boolean) {
+    const initializationId = ++this.initializationId;
+    this.loadError.set(false);
+    this.isLoading.set(true);
     this.nextChapterId = CHAPTER_ID_NOT_FETCHED;
     this.prevChapterId = CHAPTER_ID_NOT_FETCHED;
     this.nextChapterDisabled = false;
     this.prevChapterDisabled = false;
     this.nextChapterPrefetched = false;
-    this.cdRef.markForCheck();
-
     this.loadImageBookmarks();
 
-
-    this.bookService.getBookInfo(this.chapterId, true).subscribe(async (info) => {
+    try {
+      const info = await firstValueFrom(this.bookService.getBookInfo(this.chapterId, true)
+        .pipe(takeUntilDestroyed(this.destroyRef)));
+      if (initializationId !== this.initializationId || this.destroyRef.destroyed) return;
       if (this.readingListMode && info.seriesFormat !== MangaFormat.EPUB) {
-        // Redirect to the manga reader.
         const params = this.readerService.getQueryParamsObject(this.incognitoMode(), this.readingListMode, this.readingListId);
         await this.router.navigate(this.readerService.getNavigationArray(info.libraryId, info.seriesId, this.chapterId, info.seriesFormat), {queryParams: params});
         return;
       }
-
       this.bookTitle.set(info.bookTitle);
+      this.seriesTitle.set(info.seriesName);
       this.kavitaTitleStrategy.setFormattedTitle(this.bookTitle() + ' Reader');
-      this.cdRef.markForCheck();
-
       await this.readerSettingsService.initialize(this.libraryId, this.seriesId, this.readingProfile);
-
-      this.setupReaderSettingEffects(this.injector);
-
-      forkJoin({
+      if (initializationId !== this.initializationId || this.destroyRef.destroyed) return;
+      if (!this.readerSettingsEffectsInitialized) {
+        this.setupReaderSettingEffects(this.injector);
+        this.readerSettingsEffectsInitialized = true;
+      }
+      const {chapter, progress, chapters} = await firstValueFrom(forkJoin({
         chapter: this.seriesService.getChapter(this.chapterId),
         progress: this.readerService.getProgress(this.chapterId),
-        chapters: this.bookService.getBookChapters(this.chapterId),
-      }).subscribe({
-        next: ({chapter, progress, chapters}) => {
-          this.authorText.set(chapter.writers.map(p => p.name).join(', '));
-          this.setupBookReader(chapter, progress, chapters, firstLoad);
-        },
-        error: () => {
-          setTimeout(() => {
-            this.closeReader();
-          }, 200);
-        }
-      });
-    });
+        chapters: this.bookService.getBookChapters(this.chapterId)
+      }).pipe(takeUntilDestroyed(this.destroyRef)));
+      if (initializationId !== this.initializationId || this.destroyRef.destroyed) return;
+      this.authorText.set(chapter.writers.map(p => p.name).join(', '));
+      this.setupBookReader(chapter, progress, chapters, firstLoad);
+    } catch {
+      if (initializationId !== this.initializationId || this.destroyRef.destroyed) return;
+      this.showLoadError();
+    }
+  }
+
+  retryLoading() {
+    if (this.isLoading()) return;
+    this.init(true);
+  }
+
+  private showLoadError() {
+    this.isLoading.set(false);
+    this.loadError.set(true);
+    this.actionBarVisible.set(true);
+    this.cdRef.markForCheck();
   }
 
   private setupBookReader(chapter: Chapter, progress: ProgressBookmark, chapters: BookChapterItem[], firstLoad: boolean) {
@@ -1320,7 +1334,7 @@ export class BookReaderComponent implements OnInit, AfterViewInit, OnDestroy, Af
     this.isLoading.set(true);
     this.cdRef.markForCheck();
 
-    this.bookService.getBookPage(this.chapterId, this.pageNum()).subscribe(content => {
+    this.bookService.getBookPage(this.chapterId, this.pageNum()).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({next: content => {
       this.isSingleImagePage = this.checkSingleImagePage(content); // This needs be performed before we set this.page to avoid image jumping
       this.updateSingleImagePageStyles();
 
@@ -1350,7 +1364,7 @@ export class BookReaderComponent implements OnInit, AfterViewInit, OnDestroy, Af
 
         this.firstLoad = false;
       });
-    });
+    }, error: () => this.showLoadError()});
   }
 
   /**
