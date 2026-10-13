@@ -1,0 +1,96 @@
+{
+  "simulatedFailure": "book-info HTTP 500 with empty JSON body",
+  "observationWaitMs": 5000,
+  "result": {
+    "name": "mobile-book-error-500",
+    "path": "/library/3/series/1215/book/8217",
+    "width": 390,
+    "height": 844,
+    "scrollWidth": 390,
+    "buttons": [
+      {
+        "text": "",
+        "label": null,
+        "title": null,
+        "width": 46,
+        "height": 38,
+        "tag": "BUTTON",
+        "role": null,
+        "tabindex": null
+      },
+      {
+        "text": "Keyboard Shortcuts Modal",
+        "label": null,
+        "title": null,
+        "width": 44,
+        "height": 36,
+        "tag": "BUTTON",
+        "role": null,
+        "tabindex": null
+      },
+      {
+        "text": "",
+        "label": null,
+        "title": null,
+        "width": 44,
+        "height": 36,
+        "tag": "BUTTON",
+        "role": null,
+        "tabindex": null
+      },
+      {
+        "text": "",
+        "label": null,
+        "title": null,
+        "width": 44,
+        "height": 36,
+        "tag": "BUTTON",
+        "role": null,
+        "tabindex": null
+      },
+      {
+        "text": "",
+        "label": null,
+        "title": null,
+        "width": 44,
+        "height": 36,
+        "tag": "BUTTON",
+        "role": null,
+        "tabindex": null
+      },
+      {
+        "text": "",
+        "label": null,
+        "title": null,
+        "width": 44,
+        "height": 36,
+        "tag": "BUTTON",
+        "role": null,
+        "tabindex": null
+      },
+      {
+        "text": "",
+        "label": null,
+        "title": "Previous Page",
+        "width": 44,
+        "height": 36,
+        "tag": "BUTTON",
+        "role": null,
+        "tabindex": null
+      },
+      {
+        "text": "",
+        "label": null,
+        "title": "Next Page",
+        "width": 44,
+        "height": 36,
+        "tag": "BUTTON",
+        "role": null,
+        "tabindex": null
+      }
+    ],
+    "cardReadVisible": false,
+    "bodyText": "Skip to main content\nKeyboard Shortcuts Modal"
+  },
+  "errors": []
+}

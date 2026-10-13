@@ -1204,7 +1204,181 @@
         }
       ],
       "cardReadVisible": false
+    },
+    {
+      "name": "mobile-book-after-next",
+      "path": "/library/3/series/1215/book/8217",
+      "width": 390,
+      "height": 844,
+      "scrollWidth": 390,
+      "buttons": [
+        {
+          "text": "",
+          "label": null,
+          "title": null,
+          "width": 46,
+          "height": 38,
+          "tag": "BUTTON",
+          "role": null,
+          "tabindex": null
+        },
+        {
+          "text": "Keyboard Shortcuts Modal",
+          "label": null,
+          "title": null,
+          "width": 44,
+          "height": 36,
+          "tag": "BUTTON",
+          "role": null,
+          "tabindex": null
+        },
+        {
+          "text": "",
+          "label": null,
+          "title": null,
+          "width": 44,
+          "height": 36,
+          "tag": "BUTTON",
+          "role": null,
+          "tabindex": null
+        },
+        {
+          "text": "",
+          "label": null,
+          "title": null,
+          "width": 44,
+          "height": 36,
+          "tag": "BUTTON",
+          "role": null,
+          "tabindex": null
+        },
+        {
+          "text": "",
+          "label": null,
+          "title": null,
+          "width": 44,
+          "height": 36,
+          "tag": "BUTTON",
+          "role": null,
+          "tabindex": null
+        },
+        {
+          "text": "",
+          "label": null,
+          "title": null,
+          "width": 44,
+          "height": 36,
+          "tag": "BUTTON",
+          "role": null,
+          "tabindex": null
+        },
+        {
+          "text": "",
+          "label": null,
+          "title": "Previous Page",
+          "width": 44,
+          "height": 36,
+          "tag": "BUTTON",
+          "role": null,
+          "tabindex": null
+        },
+        {
+          "text": "",
+          "label": null,
+          "title": "Next Page",
+          "width": 44,
+          "height": 36,
+          "tag": "BUTTON",
+          "role": null,
+          "tabindex": null
+        }
+      ],
+      "cardReadVisible": false
     }
   ],
-  "errors": []
+  "errors": [],
+  "interactions": [
+    {
+      "kind": "pdf",
+      "action": "closeReader",
+      "returnedPath": "/library/3/series/1189"
+    },
+    {
+      "kind": "book",
+      "action": "nextPage",
+      "before": "Page 1 / 155",
+      "after": "Page 2 / 155"
+    },
+    {
+      "kind": "book",
+      "action": "closeReader",
+      "returnedPath": "/library/3/series/1189"
+    }
+  ],
+  "accessibility": [
+    {
+      "kind": "pdf",
+      "buttons": [
+        {
+          "name": "新世紀福音戰士_v01"
+        },
+        {
+          "name": "Incognito Mode"
+        },
+        {
+          "name": "Close Reader"
+        },
+        {
+          "name": "Vertical"
+        },
+        {
+          "name": "Keyboard Shortcuts Modal"
+        },
+        {
+          "name": "No Spreads"
+        },
+        {
+          "name": "Dark Theme"
+        },
+        {
+          "name": "Toggle Sidebar"
+        },
+        {
+          "name": "Zoom Out"
+        },
+        {
+          "name": "Zoom In"
+        }
+      ]
+    },
+    {
+      "kind": "book",
+      "buttons": [
+        {
+          "name": "Keyboard Shortcuts Modal"
+        },
+        {
+          "name": ""
+        },
+        {
+          "name": ""
+        },
+        {
+          "name": ""
+        },
+        {
+          "name": ""
+        },
+        {
+          "name": ""
+        },
+        {
+          "name": "Previous Page"
+        },
+        {
+          "name": "Next Page"
+        }
+      ]
+    }
+  ]
 }

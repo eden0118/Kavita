@@ -1,0 +1,19 @@
+{
+  "diagram_type": "architecture",
+  "output": "/Users/eden0118/Coding/Kavita/docs/2026-10-13-kavita-analysis/architecture.html",
+  "specification_sha256": "b9664f3ea375bd9cf8c1e91ef23f4ab827cc43c939bb03045b91ce5e26bc9cb1",
+  "specification_bytes": 3272,
+  "artifact_sha256": "79818f74c2416930c003ad3c4f1be28476b20ce7a2cfbcb244d1252f35aed883",
+  "artifact_bytes": 709626,
+  "validation": "9/9 showcase, 0 errors, 0 warnings",
+  "browser_evidence": "passed",
+  "visual_review": "passed",
+  "correction_rounds": 0,
+  "visual_review_scope": [
+    "1440x900 light",
+    "1440x900 dark",
+    "2048x1320 light",
+    "2048x1320 dark"
+  ],
+  "note": "correction_rounds counts perceptual corrections after delivery; geometry was adjusted during candidate validation; Viewer UI falls back to English."
+}
