@@ -1,0 +1,1056 @@
+--- a/UI/Web/src/app/book-reader/_components/book-reader/book-reader.component.ts
++++ b/UI/Web/src/app/book-reader/_components/book-reader/book-reader.component.ts
+@@ -25,7 +25,7 @@
+ import {firstValueFrom, forkJoin, fromEvent, merge, of, switchMap} from 'rxjs';
+ import {catchError, debounceTime, distinctUntilChanged, filter, take, tap} from 'rxjs/operators';
+ import {takeUntilDestroyed} from "@angular/core/rxjs-interop";
+-import {NgbTooltip} from '@ng-bootstrap/ng-bootstrap';
++import {NgbDropdownModule, NgbTooltip} from '@ng-bootstrap/ng-bootstrap';
+ import {BookLineOverlayComponent} from "../book-line-overlay/book-line-overlay.component";
+ import {translate, TranslocoDirective} from "@jsverse/transloco";
+ import {ReadingProfile} from "../../../_models/preferences/reading-profiles";
+@@ -132,7 +132,7 @@
+   templateUrl: './book-reader.component.html',
+   styleUrls: ['./book-reader.component.scss'],
+   changeDetection: ChangeDetectionStrategy.OnPush,
+-  imports: [NgTemplateOutlet, NgStyle, NgClass, NgbTooltip,
++  imports: [NgTemplateOutlet, NgStyle, NgClass, NgbTooltip, NgbDropdownModule,
+     BookLineOverlayComponent, TranslocoDirective, ColumnLayoutClassPipe,
+     WritingStyleClassPipe, ReadTimeLeftPipe, PercentPipe, NgxSliderModule],
+   providers: [EpubReaderSettingsService, LayoutMeasurementService],
+@@ -230,6 +230,11 @@
+    * If we are loading from backend
+    */
+   isLoading = signal<boolean>(true);
++  loadError = signal(false);
++  seriesTitle = signal('');
++  private initializationId = 0;
++  private readerSettingsEffectsInitialized = false;
++  private retryCurrentPage = false;
+   /**
+    * Title of the book. Rendered in action bar
+    */
+@@ -285,7 +290,7 @@
+   /**
+    * Offset for drawer and rendering canvas. Fixed to 62px.
+    */
+-  topOffset: number = 38;
++  topOffset: number = 44;
+   /**
+    * Used for showing/hiding bottom action bar. Calculates if there is enough scroll to show it.
+    * Will hide if all content in book is absolute positioned
+@@ -938,52 +943,68 @@
+   }
+ 
+   async init(firstLoad: boolean) {
++    const initializationId = ++this.initializationId;
++    this.retryCurrentPage = false;
++    this.loadError.set(false);
++    this.isLoading.set(true);
+     this.nextChapterId = CHAPTER_ID_NOT_FETCHED;
+     this.prevChapterId = CHAPTER_ID_NOT_FETCHED;
+     this.nextChapterDisabled = false;
+     this.prevChapterDisabled = false;
+     this.nextChapterPrefetched = false;
+-    this.cdRef.markForCheck();
+-
+     this.loadImageBookmarks();
+ 
+-
+-    this.bookService.getBookInfo(this.chapterId, true).subscribe(async (info) => {
++    try {
++      const info = await firstValueFrom(this.bookService.getBookInfo(this.chapterId, true)
++        .pipe(takeUntilDestroyed(this.destroyRef)));
++      if (initializationId !== this.initializationId || this.destroyRef.destroyed) return;
+       if (this.readingListMode && info.seriesFormat !== MangaFormat.EPUB) {
+-        // Redirect to the manga reader.
+         const params = this.readerService.getQueryParamsObject(this.incognitoMode(), this.readingListMode, this.readingListId);
+         await this.router.navigate(this.readerService.getNavigationArray(info.libraryId, info.seriesId, this.chapterId, info.seriesFormat), {queryParams: params});
+         return;
+       }
+-
+       this.bookTitle.set(info.bookTitle);
++      this.seriesTitle.set(info.seriesName);
+       this.kavitaTitleStrategy.setFormattedTitle(this.bookTitle() + ' Reader');
+-      this.cdRef.markForCheck();
+-
+       await this.readerSettingsService.initialize(this.libraryId, this.seriesId, this.readingProfile);
+-
+-      // Ensure any changes in the reader settings are applied to the reader
+-      this.readerSettingsService.settingUpdates$.pipe(
+-        takeUntilDestroyed(this.destroyRef),
+-        tap((update) => this.handleReaderSettingsUpdate(update))
+-      ).subscribe();
+-
+-      forkJoin({
++      if (initializationId !== this.initializationId || this.destroyRef.destroyed) return;
++      if (!this.readerSettingsEffectsInitialized) {
++        this.readerSettingsService.settingUpdates$.pipe(
++          takeUntilDestroyed(this.destroyRef),
++          tap(update => this.handleReaderSettingsUpdate(update))
++        ).subscribe();
++        this.readerSettingsEffectsInitialized = true;
++      }
++      const {chapter, progress, chapters} = await firstValueFrom(forkJoin({
+         chapter: this.seriesService.getChapter(this.chapterId),
+         progress: this.readerService.getProgress(this.chapterId),
+-        chapters: this.bookService.getBookChapters(this.chapterId),
+-      }).subscribe({
+-        next: ({chapter, progress, chapters}) => {
+-          this.authorText.set(chapter.writers.map(p => p.name).join(', '));
+-          this.setupBookReader(chapter, progress, chapters, firstLoad);
+-        },
+-        error: () => {
+-          setTimeout(() => {
+-            this.closeReader();
+-          }, 200);
+-        }
+-      });
+-    });
++        chapters: this.bookService.getBookChapters(this.chapterId)
++      }).pipe(takeUntilDestroyed(this.destroyRef)));
++      if (initializationId !== this.initializationId || this.destroyRef.destroyed) return;
++      this.authorText.set(chapter.writers.map(p => p.name).join(', '));
++      this.setupBookReader(chapter, progress, chapters, firstLoad);
++    } catch {
++      if (initializationId !== this.initializationId || this.destroyRef.destroyed) return;
++      this.showLoadError();
++    }
++  }
++
++  retryLoading() {
++    if (this.isLoading()) return;
++    if (this.retryCurrentPage) {
++      this.loadError.set(false);
++      this.loadPage();
++      return;
++    }
++    this.init(true);
++  }
++
++  private showLoadError(retryCurrentPage = false) {
++    this.retryCurrentPage = retryCurrentPage;
++    this.isLoading.set(false);
++    this.loadError.set(true);
++    this.actionBarVisible.set(true);
++    this.cdRef.markForCheck();
+   }
+ 
+   private setupBookReader(chapter: Chapter, progress: ProgressBookmark, chapters: BookChapterItem[], firstLoad: boolean) {
+@@ -1124,9 +1145,13 @@
+     this.isLoading.set(true);
+ 
+     if (this.nextChapterId === CHAPTER_ID_NOT_FETCHED || this.nextChapterId === this.chapterId) {
+-      this.readerService.getNextChapter(this.seriesId, this.volumeId, this.chapterId, this.readingListId).subscribe(chapterId => {
+-        this.nextChapterId = chapterId;
+-        this.loadChapter(chapterId, 'Next');
++      this.readerService.getNextChapter(this.seriesId, this.volumeId, this.chapterId, this.readingListId)
++        .pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
++        next: chapterId => {
++          this.nextChapterId = chapterId;
++          this.loadChapter(chapterId, 'Next');
++        },
++        error: () => this.showLoadError(),
+       });
+       return;
+     }
+@@ -1156,9 +1181,13 @@
+     }
+ 
+     if (this.prevChapterId === CHAPTER_ID_NOT_FETCHED || this.prevChapterId === this.chapterId && !this.prevChapterPrefetched) {
+-      this.readerService.getPrevChapter(this.seriesId, this.volumeId, this.chapterId, this.readingListId).subscribe(chapterId => {
+-        this.prevChapterId = chapterId;
+-        this.loadChapter(chapterId, 'Prev');
++      this.readerService.getPrevChapter(this.seriesId, this.volumeId, this.chapterId, this.readingListId)
++        .pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
++        next: chapterId => {
++          this.prevChapterId = chapterId;
++          this.loadChapter(chapterId, 'Prev');
++        },
++        error: () => this.showLoadError(),
+       });
+     } else {
+       this.loadChapter(this.prevChapterId, 'Prev');
+@@ -1271,7 +1300,7 @@
+     this.isLoading.set(true);
+     this.cdRef.markForCheck();
+ 
+-    this.bookService.getBookPage(this.chapterId, this.pageNum()).subscribe(content => {
++    this.bookService.getBookPage(this.chapterId, this.pageNum()).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({next: content => {
+       this.isSingleImagePage = this.checkSingleImagePage(content); // This needs be performed before we set this.page to avoid image jumping
+       this.updateSingleImagePageStyles();
+ 
+@@ -1301,7 +1330,7 @@
+ 
+         this.firstLoad = false;
+       });
+-    });
++    }, error: () => this.showLoadError(true)});
+   }
+ 
+   /**
+@@ -1615,6 +1644,7 @@
+    * @param direction Direction to move
+    */
+   movePage(direction: PAGING_DIRECTION) {
++    if (this.isLoading() || this.loadError()) return;
+     switch (direction) {
+       case PAGING_DIRECTION.BACKWARDS:
+         this.prevPage();
+--- a/UI/Web/src/app/book-reader/_components/book-reader/book-reader.component.html
++++ b/UI/Web/src/app/book-reader/_components/book-reader/book-reader.component.html
+@@ -18,7 +18,18 @@
+       }
+     </div>
+ 
+-    @if (clickToPaginate() && !hidePagination()) {
++    @if (loadError()) {
++      <section class="reader-error" role="alert">
++        <h2>{{ t('load-error') }}</h2>
++        <p>{{ t('load-error-description') }}</p>
++        <div class="d-flex flex-wrap justify-content-center gap-2">
++          <button type="button" class="btn btn-primary" (click)="retryLoading()">{{ t('retry') }}</button>
++          <button type="button" class="btn btn-secondary" (click)="closeReader()" [attr.aria-label]="t('close-reader-alt')">{{ t('return-to-library') }}</button>
++        </div>
++      </section>
++    }
++
++    @if (clickToPaginate() && !hidePagination() && !loadError()) {
+       <div class="tap-to-paginate">
+         <div class="left {{clickOverlayClass('left')}} no-observe"
+             (click)="movePage(isLeftToRight ? PAGING_DIRECTION.BACKWARDS : PAGING_DIRECTION.FORWARD)"
+@@ -44,7 +55,7 @@
+              [ngClass]="{'immersive': immersiveMode() && actionBarVisible, 'debug': debugMode()}"
+              [innerHtml]="page()" (click)="toggleMenu($event)" (mousedown)="mouseDown($event)" (wheel)="onWheel($event)"></div>
+ 
+-          @if (shouldShowBottomActionBar()) {
++          @if (shouldShowBottomActionBar() && !loadError()) {
+             <div class="bottom-bar" (click)="$event.stopPropagation();">
+               <ng-container [ngTemplateOutlet]="bottomActionBar" [ngTemplateOutletContext]="{isTop: false}" />
+             </div>
+@@ -56,35 +67,41 @@
+       @if (shouldShowMenu()) {
+         <div class="reader-header">
+           <div class="action-bar top-action-bar px-2">
+-            <div>
+-              <button class="btn btn-secondary me-2" (click)="toggleDrawer()">
++            <div class="desktop-controls">
++              <button class="btn btn-secondary me-2 desktop-controls" (click)="toggleDrawer()" [attr.aria-label]="t('settings-alt')">
+                 <i class="fa fa-bars" aria-hidden="true"></i>
+               </button>
+             </div>
+ 
++            <button type="button" class="btn btn-icon mobile-controls" (click)="closeReader()" [attr.aria-label]="t('close-reader-alt')">
++              <i class="fa fa-arrow-left" aria-hidden="true"></i>
++            </button>
+             <div class="text-center center-group">
+               @if (isLoading()) {
+                 <div class="spinner-border spinner-border-sm text-primary" style="border-radius: 50%;" role="status">
+                   <span class="visually-hidden">{{ t('loading-book') }}</span>
+                 </div>
+               } @else {
+-                <div class="d-flex">
++                <div class="reader-context-row">
+                   @if (incognitoMode()) {
+-                    <span (click)="turnOffIncognito()" role="button" [attr.aria-label]="t('incognito-mode-alt')">
+-                    (<i class="fa fa-glasses" aria-hidden="true"></i><span class="visually-hidden">{{ t('incognito-mode-label') }}</span>)
+-                  </span>
++                    <button type="button" class="btn btn-icon reader-incognito-switch" (click)="turnOffIncognito()" [attr.aria-label]="t('incognito-mode-alt')">
++                      <i class="fa fa-glasses" aria-hidden="true"></i>
++                    </button>
+                   }
+-                  <span class="ms-1 book-title-text" [ngbTooltip]="bookTitle() + ' - ' + authorText()">
+-                  {{ bookTitle() }}
+-                    @if (breakpointService.isDesktopOrAbove()) {
+-                      - {{ authorText() }}
++                  <div class="reader-context-text">
++                    <span class="book-title-text" [ngbTooltip]="bookTitle() + ' - ' + authorText()">
++                      {{ seriesTitle() || bookTitle() }}
++                      @if (breakpointService.isDesktopOrAbove()) { - {{ authorText() }} }
++                    </span>
++                    @if (seriesTitle() && seriesTitle() !== bookTitle()) {
++                      <small class="reader-chapter-text">{{ bookTitle() }}</small>
+                     }
+-                </span>
++                  </div>
+                 </div>
+               }
+             </div>
+ 
+-            <div class="d-flex align-items-center right-group">
++            <div class="d-flex align-items-center right-group desktop-controls">
+               @if (!this.adhocPageHistory.isEmpty()) {
+                 <button class="btn btn-secondary btn-icon me-1" (click)="goBack()" [title]="t('go-back')">
+                   <i class="fa fa-reply" aria-hidden="true"></i>
+@@ -105,18 +122,32 @@
+                 <span class="visually-hidden">{{t('shortcuts-menu-alt')}}</span>
+               </button>
+ 
+-              <button class="btn btn-secondary btn-icon me-1" (click)="viewBookmarkImages()">
++              <button class="btn btn-secondary btn-icon me-1" (click)="viewBookmarkImages()" [attr.aria-label]="t('bookmarks-alt')">
+                 <i class="fa-solid fa-book-bookmark" aria-hidden="true"></i>
+               </button>
+-              <button class="btn btn-secondary btn-icon me-1" (click)="viewAnnotations()">
++              <button class="btn btn-secondary btn-icon me-1" (click)="viewAnnotations()" [attr.aria-label]="t('annotations-alt')">
+                 <i class="fa-solid fa-highlighter" aria-hidden="true"></i>
+               </button>
+-              <button class="btn btn-secondary btn-icon me-1" (click)="viewToCDrawer()">
++              <button class="btn btn-secondary btn-icon me-1" (click)="viewToCDrawer()" [attr.aria-label]="t('contents-alt')">
+                 <i class="fa-regular fa-rectangle-list" aria-hidden="true"></i>
+               </button>
+-              <button class="btn btn-secondary btn-icon me-1" (click)="closeReader()">
++              <button class="btn btn-secondary btn-icon me-1" (click)="closeReader()" [attr.aria-label]="t('close-reader-alt')">
+                 <i class="fa fa-times-circle" aria-hidden="true"></i>
+               </button>
++            </div>
++            <div ngbDropdown #readerTools="ngbDropdown" class="mobile-controls" placement="bottom-end" container="body"
++                 (keydown.escape)="readerTools.close(); $event.stopPropagation()">
++              <button #readerToolsToggle type="button" class="btn btn-icon" ngbDropdownToggle [attr.aria-label]="t('more-options')">
++                <i class="fa fa-ellipsis-v" aria-hidden="true"></i>
++              </button>
++              <div ngbDropdownMenu class="reader-tools-menu" (keydown)="$event.stopPropagation()"
++                   (keydown.escape)="readerTools.close(); readerToolsToggle.focus()">
++                <button ngbDropdownItem (click)="toggleDrawer()">{{ t('settings-alt') }}</button>
++                <button ngbDropdownItem (click)="viewToCDrawer()">{{ t('contents-alt') }}</button>
++                <button ngbDropdownItem (click)="viewBookmarkImages()">{{ t('bookmarks-alt') }}</button>
++                <button ngbDropdownItem (click)="viewAnnotations()">{{ t('annotations-alt') }}</button>
++                <button ngbDropdownItem (click)="openShortcutModal()">{{ t('shortcuts-menu-alt') }}</button>
++              </div>
+             </div>
+           </div>
+         </div>
+@@ -129,7 +160,7 @@
+         <div class="d-flex justify-content-start">
+           <button class="btn btn-outline-secondary btn-icon ms-sm-5"
+                   (click)="movePage(isLeftToRight ? PAGING_DIRECTION.BACKWARDS : PAGING_DIRECTION.FORWARD)"
+-                  [disabled]="isPrevDisabled()"
++                  [disabled]="isPrevDisabled() || isLoading() || loadError()"
+                   title="{{isLeftToRight ? t('previous') : t('next')}} Page">
+             <i class="fa {{(isLeftToRight ? IsPrevChapter : IsNextChapter) ? 'fa-angle-double-left' : 'fa-angle-left'}} {{isLeftToRight ? '' : 'next-page-highlight'}}" aria-hidden="true"></i>
+           </button>
+@@ -171,7 +202,7 @@
+ 
+         <div class="d-flex justify-content-end">
+           <button class="btn btn-outline-secondary btn-icon me-sm-5"
+-                  [disabled]="isNextDisabled()"
++                  [disabled]="isNextDisabled() || isLoading() || loadError()"
+                   (click)="movePage(isLeftToRight ? PAGING_DIRECTION.FORWARD : PAGING_DIRECTION.BACKWARDS)"
+                   title="{{isLeftToRight ? t('next') : t('previous')}} Page">
+             <i class="fa {{(isLeftToRight ? IsNextChapter : IsPrevChapter) ? 'fa-angle-double-right' : 'fa-angle-right'}} {{readingDirection() === ReadingDirection.LeftToRight ? 'next-page-highlight' : ''}}" aria-hidden="true"></i>
+--- a/UI/Web/src/app/book-reader/_components/book-reader/book-reader.component.scss
++++ b/UI/Web/src/app/book-reader/_components/book-reader/book-reader.component.scss
+@@ -10,7 +10,7 @@
+ 
+ $dark-form-background-no-opacity: rgb(1, 4, 9);
+ $primary-color: #0062cc;
+-$action-bar-height: 2.375rem;
++$action-bar-height: 2.75rem;
+ 
+ .reader-container {
+   &::-webkit-scrollbar {
+@@ -96,11 +96,14 @@
+ /* Mobile - 2 columns */
+ @media (max-width: 875px) {
+   .top-action-bar {
+-    grid-template-columns: auto 1fr;
++    grid-template-columns: 44px minmax(0, 1fr) 44px;
++    gap: 8px;
+   }
+ 
+   .center-group {
+-    display: none;
++    display: block;
++    min-width: 0;
++    overflow: hidden;
+   }
+ 
+   .right-group {
+@@ -451,3 +454,37 @@
+ .page-progress-slider {
+   margin: 0;
+ }
++
++::ng-deep .book-content .tooltip-inner {
++  border: none !important;
++}
++
++.mobile-controls { display: none; }
++.reader-chapter-text {
++  display: block;
++  overflow: hidden;
++  text-overflow: ellipsis;
++  white-space: nowrap;
++  font-size: 0.75rem;
++}
++.reader-error {
++  position: absolute;
++  inset: 4rem 1rem auto;
++  z-index: 20;
++  text-align: center;
++  padding: 1.5rem;
++  background: var(--br-actionbar-bg-color);
++  border: 1px solid var(--body-text-color);
++  border-radius: 0.5rem;
++  h2 { font-size: 1.25rem; }
++}
++@media (max-width: 875px) {
++  .desktop-controls { display: none !important; }
++  .mobile-controls { display: block; }
++  .action-bar button { min-width: 44px; min-height: 44px; }
++  .book-title-text { font-size: 0.875rem; }
++}
++::ng-deep .reader-tools-menu .dropdown-item { min-height: 44px; }
++
++.reader-context-row { display: flex; align-items: center; justify-content: center; gap: 4px; }
++.reader-context-text { min-width: 0; }
+--- a/UI/Web/src/app/book-reader/_models/book-info.ts
++++ b/UI/Web/src/app/book-reader/_models/book-info.ts
+@@ -1,6 +1,7 @@
+ import {MangaFormat} from "../../_models/manga-format";
+ 
+ export interface BookInfo {
++  seriesName: string;
+   bookTitle: string;
+   seriesFormat: MangaFormat;
+   seriesId: number;
+--- a/UI/Web/src/app/pdf-reader/_components/pdf-reader/pdf-reader.component.ts
++++ b/UI/Web/src/app/pdf-reader/_components/pdf-reader/pdf-reader.component.ts
+@@ -21,8 +21,8 @@
+   ScrollModeType, SpreadType
+ } from 'ngx-extended-pdf-viewer';
+ import {ToastrService} from '@openng/ngx-toastr';
+-import {take} from 'rxjs';
+-import {NgbTooltip} from '@ng-bootstrap/ng-bootstrap';
++import {firstValueFrom, forkJoin, take} from 'rxjs';
++import {NgbDropdownModule, NgbTooltip} from '@ng-bootstrap/ng-bootstrap';
+ import {DOCUMENT, NgStyle} from '@angular/common';
+ import {translate, TranslocoDirective} from "@jsverse/transloco";
+ import {PdfLayoutMode} from "../../../_models/preferences/pdf-layout-mode";
+@@ -59,7 +59,7 @@
+   styleUrls: ['./pdf-reader.component.scss'],
+   changeDetection: ChangeDetectionStrategy.OnPush,
+   imports: [NgStyle, NgxExtendedPdfViewerModule, NgbTooltip, TranslocoDirective,
+-    PdfScrollModeTypePipe, PdfSpreadTypePipe]
++    PdfScrollModeTypePipe, PdfSpreadTypePipe, NgbDropdownModule]
+ })
+ export class PdfReaderComponent implements OnInit, OnDestroy {
+ 
+@@ -131,6 +131,16 @@
+    */
+   disableLoadingIndicator = computed(() => this.accountService.userPreferences()?.dataSaver);
+   isLoading: boolean = true;
++  isChapterLoading = true;
++  loadError = false;
++  seriesTitle = '';
++  showPdfTools = false;
++  nextChapterId: number | null = null;
++  previousChapterId: number | null = null;
++  adjacentLoading = true;
++  adjacentError = false;
++  chapterNavigationLoading = false;
++  private initializationId = 0;
+   /**
+    * How much of the current document is loaded
+    */
+@@ -159,7 +169,7 @@
+               this.closeReader();
+               break;
+             case KeyBindTarget.FirstPage:
+-              this.currentPage = 0;
++              this.currentPage = 1;
+               this.cdRef.markForCheck();
+               break;
+             case KeyBindTarget.LastPage:
+@@ -238,7 +248,16 @@
+ 
+     window.addEventListener('keydown', this.downloadHandler, { capture: true });
+ 
+-    this.init();
++    this.route.paramMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(params => {
++      this.libraryId = Number(params.get('libraryId'));
++      this.seriesId = Number(params.get('seriesId'));
++      this.chapterId = Number(params.get('chapterId'));
++      this.incognitoMode = this.route.snapshot.queryParamMap.get('incognitoMode') === 'true';
++      const readingListId = this.route.snapshot.queryParamMap.get('readingListId');
++      this.readingListMode = readingListId !== null;
++      this.readingListId = readingListId === null ? CHAPTER_ID_DOESNT_EXIST : Number(readingListId);
++      this.init();
++    });
+   }
+ 
+   private downloadHandler = (event: KeyboardEvent) => {
+@@ -254,7 +273,7 @@
+   calcScrollbarNeeded() {
+     const viewContainer = this.document.querySelector('#viewerContainer');
+     if (viewContainer == null) return;
+-    this.scrollbarNeeded = viewContainer.scrollHeight > this.container()?.nativeElement?.clientHeight;
++    this.scrollbarNeeded = viewContainer.scrollHeight > viewContainer.clientHeight;
+     this.cdRef.markForCheck();
+   }
+ 
+@@ -312,33 +331,100 @@
+     this.theme = this.convertPdfTheme(this.readingProfile.pdfTheme || PdfTheme.Dark);
+   }
+ 
+-  init() {
++  async init() {
++    const initializationId = ++this.initializationId;
++    this.isChapterLoading = true;
++    this.isLoading = true;
++    this.loadError = false;
++    this.loadPercent = 0;
++    this.nextChapterId = null;
++    this.previousChapterId = null;
++    this.adjacentLoading = true;
++    this.adjacentError = false;
++    this.currentPage = 1;
+     this.backgroundColor = this.themeMap[this.theme].background;
+-    this.fontColor = this.themeMap[this.theme].font; // TODO: Move this to an observable or something
+-
+-    this.calcScrollbarNeeded();
+-
+-    this.bookService.getBookInfo(this.chapterId).subscribe(info => {
++    this.fontColor = this.themeMap[this.theme].font;
++    this.cdRef.markForCheck();
++    try {
++      const {info, progress, chapter} = await firstValueFrom(forkJoin({
++        info: this.bookService.getBookInfo(this.chapterId),
++        progress: this.readerService.getProgress(this.chapterId),
++        chapter: this.seriesService.getChapter(this.chapterId)
++      }).pipe(takeUntilDestroyed(this.destroyRef)));
++      if (initializationId !== this.initializationId || this.destroyRef.destroyed) return;
++      if (chapter.pages < 1) throw new Error('Chapter has no pages');
+       this.volumeId = info.volumeId;
++      this.chapter = chapter;
+       this.bookTitle = info.bookTitle;
++      this.seriesTitle = info.seriesName;
++      this.maxPages = chapter.pages;
++      this.currentPage = Math.min(this.maxPages, Math.max(1, progress.pageNum || 1));
++      this.isChapterLoading = false;
++      this.loadAdjacentChapters();
+       this.cdRef.markForCheck();
++    } catch {
++      if (initializationId !== this.initializationId || this.destroyRef.destroyed) return;
++      this.showLoadError();
++    }
++  }
++
++  showLoadError() {
++    this.isLoading = false;
++    this.isChapterLoading = false;
++    this.loadError = true;
++    this.cdRef.markForCheck();
++  }
++
++  loadAdjacentChapters() {
++    const chapterId = this.chapterId;
++    this.adjacentLoading = true;
++    this.adjacentError = false;
++    forkJoin({
++      next: this.readerService.getNextChapter(this.seriesId, this.volumeId, chapterId, this.readingListId),
++      previous: this.readerService.getPrevChapter(this.seriesId, this.volumeId, chapterId, this.readingListId)
++    }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
++      next: adjacent => {
++        if (chapterId !== this.chapterId) return;
++        this.nextChapterId = adjacent.next;
++        this.previousChapterId = adjacent.previous;
++        this.adjacentLoading = false;
++        this.cdRef.markForCheck();
++      },
++      error: () => {
++        if (chapterId !== this.chapterId) return;
++        this.adjacentLoading = false;
++        this.adjacentError = true;
++        this.cdRef.markForCheck();
++      }
+     });
+-
+-    this.readerService.getProgress(this.chapterId).subscribe(progress => {
+-      this.currentPage = progress.pageNum || 1;
+-      this.cdRef.markForCheck();
+-    });
+-
+-    this.seriesService.getChapter(this.chapterId).subscribe(chapter => {
+-      this.maxPages = chapter.pages;
+-
+-      if (this.currentPage >= this.maxPages) {
+-        this.currentPage = this.maxPages - 1;
+-        // Don't save progress on first load to avoid session creation, wait for a page change event
++  }
++
++  async openChapter(chapterId: number | null) {
++    if (!chapterId || chapterId < 1 || this.chapterNavigationLoading) return;
++    this.chapterNavigationLoading = true;
++    this.adjacentError = false;
++    this.cdRef.markForCheck();
++    try {
++      const info = await firstValueFrom(this.readerService.getChapterInfo(chapterId).pipe(takeUntilDestroyed(this.destroyRef)));
++      const navigated = await this.router.navigate(
++        this.readerService.getNavigationArray(info.libraryId, info.seriesId, chapterId, info.seriesFormat),
++        {queryParams: this.readerService.getQueryParamsObject(this.incognitoMode, this.readingListMode, this.readingListId)}
++      );
++      if (!navigated) throw new Error('Chapter navigation was cancelled');
++    } catch {
++      if (!this.destroyRef.destroyed) this.adjacentError = true;
++    } finally {
++      if (!this.destroyRef.destroyed) {
++        this.chapterNavigationLoading = false;
++        this.cdRef.markForCheck();
+       }
+-      this.cdRef.markForCheck();
+-    });
+-    setTimeout(() => this.readerService.enableWakeLock(this.container().nativeElement), 1000);
++    }
++  }
++
++  setPage(page: number) {
++    if (!Number.isFinite(page) || this.isChapterLoading || this.loadError) return;
++    this.currentPage = Math.min(this.maxPages, Math.max(1, Math.trunc(page)));
++    this.cdRef.markForCheck();
+   }
+ 
+   /**
+@@ -405,7 +491,7 @@
+   }
+ 
+   saveProgress() {
+-    if (this.incognitoMode) return;
++    if (this.incognitoMode || this.isChapterLoading || this.loadError || this.chapterNavigationLoading) return;
+     this.readerService.saveProgress(this.libraryId, this.seriesId, this.volumeId, this.chapterId, this.currentPage).subscribe();
+   }
+ 
+@@ -420,6 +506,7 @@
+ 
+   updateLoading(state: boolean) {
+     this.isLoading = state;
++    if (!state) this.readerService.enableWakeLock(this.container().nativeElement);
+     this.cdRef.markForCheck();
+   }
+ 
+@@ -439,7 +526,7 @@
+ 
+   prevPage() {
+      this.currentPage--;
+-     if (this.currentPage < 0) this.currentPage = 0;
++     if (this.currentPage < 1) this.currentPage = 1;
+      this.cdRef.markForCheck();
+   }
+ 
+--- a/UI/Web/src/app/pdf-reader/_components/pdf-reader/pdf-reader.component.html
++++ b/UI/Web/src/app/pdf-reader/_components/pdf-reader/pdf-reader.component.html
+@@ -1,9 +1,49 @@
+ <ng-container *transloco="let t; prefix: 'pdf-reader'">
+   @let user = accountService.currentUser();
+   @if (user) {
+-    <div class="{{theme}}" #container>
+-
+-      @if (isLoading && !disableLoadingIndicator()) {
++    <div class="{{theme}} pdf-reader-shell" [class.show-pdf-tools]="showPdfTools" #container>
++
++      <div class="mobile-pdf-toolbar" [ngStyle]="{'background-color': backgroundColor, 'color': fontColor}">
++        <button type="button" class="btn btn-icon" (click)="closeReader()" [attr.aria-label]="t('close-reader-alt')">
++          <i class="fa fa-arrow-left" aria-hidden="true"></i>
++        </button>
++        <div class="pdf-reading-context">
++          <span>{{ seriesTitle || bookTitle || t('loading-message') }}</span>
++          <small>{{ bookTitle }}</small>
++        </div>
++        <div ngbDropdown #pdfTools="ngbDropdown" placement="bottom-end" container="body"
++             (keydown.escape)="pdfTools.close(); $event.stopPropagation()">
++          <button #pdfToolsToggle type="button" class="btn btn-icon" ngbDropdownToggle [attr.aria-label]="t('more-options')">
++            <i class="fa fa-ellipsis-v" aria-hidden="true"></i>
++          </button>
++          <div ngbDropdownMenu class="pdf-mobile-menu" (keydown)="$event.stopPropagation()"
++               (keydown.escape)="pdfTools.close(); pdfToolsToggle.focus()">
++            @if (incognitoMode) { <span class="dropdown-header">{{ t('incognito-mode') }}</span> }
++            <label class="dropdown-item" for="pdf-mobile-page">{{ t('page-number') }}</label>
++            <input #pageInput id="pdf-mobile-page" class="form-control" type="number" min="1" [max]="maxPages" [value]="currentPage"
++                   [disabled]="isChapterLoading || loadError" (change)="setPage(pageInput.valueAsNumber)" />
++            <button ngbDropdownItem [attr.aria-pressed]="showPdfTools" (click)="showPdfTools = !showPdfTools">{{ t('advanced-pdf-tools') }}</button>
++            <button ngbDropdownItem (click)="zoomSetting = 'page-width'">{{ t('fit-width') }}</button>
++            <button ngbDropdownItem (click)="toggleTheme()">{{ t('dark-theme-alt') }} / {{ t('light-theme-alt') }}</button>
++            <button ngbDropdownItem (click)="toggleScrollMode()">{{ scrollMode | pdfScrollModeType }}</button>
++            <button ngbDropdownItem (click)="toggleSpreadMode()">{{ spreadMode | pdfSpreadType }}</button>
++            <button ngbDropdownItem (click)="openShortcutModal()">{{ t('shortcuts-menu-alt') }}</button>
++            <button ngbDropdownItem [disabled]="adjacentLoading || adjacentError || previousChapterId === null || previousChapterId < 1 || chapterNavigationLoading"
++                    (click)="openChapter(previousChapterId)">{{ t('previous-chapter') }}</button>
++            <button ngbDropdownItem [disabled]="adjacentLoading || adjacentError || nextChapterId === null || nextChapterId < 1 || chapterNavigationLoading"
++                    (click)="openChapter(nextChapterId)">{{ t('next-chapter') }}</button>
++          </div>
++        </div>
++      </div>
++      @if (loadError) {
++        <section class="pdf-reader-error" role="alert">
++          <h2>{{ t('load-error') }}</h2>
++          <p>{{ t('load-error-description') }}</p>
++          <button class="btn btn-primary" (click)="init()">{{ t('retry') }}</button>
++          <button class="btn btn-secondary ms-2" (click)="closeReader()">{{ t('return-to-library') }}</button>
++        </section>
++      }
++      @if (isLoading && !loadError && !disableLoadingIndicator()) {
+         <div class="loading-message-container">
+           <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+           {{t('loading-message')}}
+@@ -15,10 +55,12 @@
+         </div>
+       }
+ 
++      @if (!isChapterLoading && !loadError) {
++      <div class="pdf-reader-viewer">
+       <ngx-extended-pdf-viewer #pdfViewer
+         [src]="readerService.downloadPdf(this.chapterId)"
+         [authorization]="user.token ? 'Bearer ' + user.token : ''"
+-        height="100vh"
++        height="100%"
+         [(page)]="currentPage"
+         [textLayer]="true"
+         [showHandToolButton]="true"
+@@ -41,13 +83,35 @@
+         (pageChange)="saveProgress()"
+         (pdfLoadingStarts)="updateLoading(true)"
+         (pdfLoaded)="updateLoading(false)"
++        (pdfLoadingFailed)="showLoadError()"
+         (progress)="updateLoadProgress($event)"
+         (zoomChange)="calcScrollbarNeeded()"
+-        (handToolChange)="updateHandTool($event)"
+         (findbarVisibleChange)="updateSearchOpen($event)"
+        />
+-
+-      @if (scrollMode === ScrollModeType.page && !isLoading) {
++      </div>
++      }
++      @if (!loadError && !isChapterLoading) {
++        <div class="pdf-chapter-navigation" [ngStyle]="{'background-color': backgroundColor, 'color': fontColor}">
++          <span>{{ currentPage }} / {{ maxPages }}</span>
++          @if (currentPage >= maxPages && maxPages > 0) {
++            @if (adjacentLoading || chapterNavigationLoading) {
++              <span role="status">{{ t('chapter-loading') }}</span>
++            } @else if (!adjacentError && nextChapterId !== null && nextChapterId < 1) {
++              <span>{{ t('reading-complete') }}</span>
++            }
++          }
++          @if (adjacentError) {
++            <span role="alert">{{ t('chapter-navigation-error') }}</span>
++            <button class="btn btn-secondary" (click)="loadAdjacentChapters()">{{ t('retry') }}</button>
++          } @else {
++            <button class="btn btn-secondary" [disabled]="adjacentLoading || previousChapterId === null || previousChapterId < 1 || chapterNavigationLoading"
++                    (click)="openChapter(previousChapterId)">{{ t('previous-chapter') }}</button>
++            <button class="btn btn-primary" [disabled]="adjacentLoading || nextChapterId === null || nextChapterId < 1 || chapterNavigationLoading"
++                    (click)="openChapter(nextChapterId)">{{ t('next-chapter') }}</button>
++          }
++        </div>
++      }
++      @if (scrollMode === ScrollModeType.page && !isLoading && !isChapterLoading && !loadError) {
+         @if (!isSearchOpen) {
+           <div class="left" (click)="prevPage()"></div>
+           <div class="{{scrollbarNeeded ? 'right-with-scrollbar' : 'right'}}" (click)="nextPage()"></div>
+--- a/UI/Web/src/app/pdf-reader/_components/pdf-reader/pdf-reader.component.scss
++++ b/UI/Web/src/app/pdf-reader/_components/pdf-reader/pdf-reader.component.scss
+@@ -107,3 +107,48 @@
+ }
+ 
+ 
++
++.mobile-pdf-toolbar { display: none; }
++.pdf-chapter-navigation {
++  position: relative;
++  z-index: 5;
++  flex-shrink: 0;
++  padding: 0.25rem 0.5rem calc(0.25rem + env(safe-area-inset-bottom, 0px));
++  display: grid;
++  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
++  gap: 8px;
++  align-items: center;
++  > span:first-child { grid-column: 2; grid-row: 1; }
++  > span:not(:first-child) { grid-column: 1 / -1; text-align: center; }
++  > button.btn-secondary { grid-column: 1; grid-row: 1; }
++  > button.btn-primary { grid-column: 3; grid-row: 1; }
++  button { min-height: 44px; white-space: normal; font-size: 0.875rem; }
++}
++.pdf-reader-error { padding: 2rem 1rem; text-align: center; }
++
++::ng-deep .pdf-mobile-menu {
++  padding: 0.5rem;
++  .dropdown-item { min-height: 44px; }
++}
++@media (max-width: 875px) {
++  .mobile-pdf-toolbar {
++    display: grid;
++    grid-template-columns: 44px minmax(0, 1fr) 44px;
++    gap: 8px;
++    padding: 0 8px;
++    min-height: 44px;
++    button { min-width: 44px; min-height: 44px; color: inherit; }
++  }
++  .pdf-reading-context {
++    min-width: 0;
++    text-align: center;
++    span, small { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
++    span { font-size: 0.875rem; }
++    small { font-size: 0.75rem; }
++  }
++  :host ::ng-deep .pdf-reader-shell:not(.show-pdf-tools) #toolbarViewer { display: none !important; }
++}
++
++.pdf-reader-shell { display: flex; flex-direction: column; height: 100dvh; }
++.pdf-reader-viewer { flex: 1; min-height: 0; position: relative; }
++.mobile-pdf-toolbar { flex-shrink: 0; position: relative; z-index: 6; }
+--- a/UI/Web/src/app/_services/reader.service.ts
++++ b/UI/Web/src/app/_services/reader.service.ts
+@@ -1,7 +1,7 @@
+ import {HttpClient} from '@angular/common/http';
+-import {effect, inject, Injectable, signal} from '@angular/core';
+-import {DOCUMENT, Location} from '@angular/common';
+-import {Router} from '@angular/router';
++import {DestroyRef, effect, inject, Injectable, signal} from '@angular/core';
++import {DOCUMENT} from '@angular/common';
++import {NavigationStart, Router} from '@angular/router';
+ import {environment} from '../../environments/environment';
+ import {ChapterInfo} from '../manga-reader/_models/chapter-info';
+ import {Chapter} from '../_models/chapter';
+@@ -24,7 +24,8 @@
+ import {ModalService, TypedModalRef} from "./modal.service";
+ import {catchError, map, merge, Observable, of, switchMap, tap} from "rxjs";
+ import {ListSelectModalComponent} from "../shared/_components/list-select-modal/list-select-modal.component";
+-import {take, takeUntil} from "rxjs/operators";
++import {filter, take, takeUntil} from "rxjs/operators";
++import {takeUntilDestroyed} from "@angular/core/rxjs-interop";
+ import {SeriesService} from "./series.service";
+ import {Series} from "../_models/series";
+ import {RereadPrompt} from "../_models/readers/reread-prompt";
+@@ -51,7 +52,6 @@
+ export class ReaderService {
+ 
+   private readonly router = inject(Router);
+-  private readonly location = inject(Location);
+   private readonly accountService = inject(AccountService);
+   private readonly toastr = inject(ToastrService);
+   private readonly httpClient = inject(HttpClient);
+@@ -67,12 +67,26 @@
+ 
+ 
+   private noSleep: NoSleep = new NoSleep();
++  private readerEntry: {url: string; seriesId: number; scrollY: number; focusId: string | null} | null = null;
++  private readonly destroyRef = inject(DestroyRef);
+   shortCutModalOpen = signal(false);
+   shortCutModalRef: TypedModalRef<ShortcutsModalComponent> | undefined;
+ 
+ 
+ 
+   constructor() {
++    this.router.events.pipe(
++      filter((event): event is NavigationStart => event instanceof NavigationStart),
++      takeUntilDestroyed(this.destroyRef)
++    ).subscribe(event => {
++      const target = event.url.match(/^\/library\/\d+\/series\/(\d+)\/(?:book|pdf|manga)\/\d+/);
++      if (!target) return;
++      if (/\/(?:book|pdf|manga)\/\d+/.test(this.router.url)) return;
++      const url = this.router.url;
++      this.readerEntry = url !== '/' && !url.startsWith('/login')
++        ? {url, seriesId: Number(target[1]), scrollY: window.scrollY, focusId: this.document.activeElement?.id || null}
++        : null;
++    });
+     effect(() => {
+       const apiKey = this.accountService.currentUserGenericApiKey();
+       if (apiKey) {
+@@ -93,11 +107,13 @@
+   }
+ 
+   closeShortCutModal() {
++    const isOpen = !!this.shortCutModalRef;
+     if (this.shortCutModalRef) {
+       this.shortCutModalRef.dismiss();
+       this.shortCutModalRef = undefined;
+     }
+     this.shortCutModalOpen.set(false);
++    return isOpen;
+   }
+ 
+ 
+@@ -366,12 +382,16 @@
+       return
+     }
+ 
+-    if (window.history.length > 1) {
+-      this.location.back();
+-      return;
+-    }
+-
+-    this.router.navigateByUrl(`/library/${libraryId}/series/${seriesId}/chapter/${chapterId}`);
++    const entry = this.readerEntry?.seriesId === seriesId ? this.readerEntry : null;
++    this.readerEntry = null;
++    const target = entry?.url || `/library/${libraryId}/series/${seriesId}`;
++    this.router.navigateByUrl(target).then(navigated => {
++      if (!navigated || !entry) return;
++      requestAnimationFrame(() => {
++        if (entry.focusId) this.document.getElementById(entry.focusId)?.focus({preventScroll: true});
++        window.scrollTo({top: entry.scrollY, behavior: 'instant'});
++      });
++    });
+   }
+ 
+   removePersonalToc(chapterId: number, pageNumber: number, title: string) {
+--- a/UI/Web/src/assets/langs/en.json
++++ b/UI/Web/src/assets/langs/en.json
+@@ -1448,6 +1448,30 @@
+     },
+ 
+     "book-reader": {
++
++        "settings-alt": "Reading settings",
++
++        "bookmarks-alt": "Bookmarks",
++
++        "annotations-alt": "Annotations",
++
++        "contents-alt": "Contents and chapters",
++
++        "more-options": "More reading options",
++
++        "load-error": "Unable to open this chapter",
++
++        "load-error-description": "Check your connection or try again.",
++
++        "retry": "Try again",
++
++        "return-to-library": "Return to library",
++
++        "next-chapter": "Next chapter",
++
++        "previous-chapter": "Previous chapter",
++
++        "chapter-loading": "Opening chapter…",
+         "page-label": "Page",
+         "skip-header": "Skip to main content",
+         "loading-book": "Loading book…",
+@@ -3305,6 +3329,40 @@
+     },
+ 
+     "pdf-reader": {
++
++        "settings-alt": "Reading settings",
++
++        "bookmarks-alt": "Bookmarks",
++
++        "annotations-alt": "Annotations",
++
++        "contents-alt": "Contents and chapters",
++
++        "more-options": "More reading options",
++
++        "load-error": "Unable to open this chapter",
++
++        "load-error-description": "Check your connection or try again.",
++
++        "retry": "Try again",
++
++        "return-to-library": "Return to library",
++
++        "next-chapter": "Next chapter",
++
++        "previous-chapter": "Previous chapter",
++
++        "chapter-loading": "Opening chapter…",
++
++        "page-number": "Page number",
++
++        "fit-width": "Fit to width",
++
++        "reading-complete": "End of series",
++
++        "chapter-navigation-error": "Unable to load chapter navigation.",
++
++        "advanced-pdf-tools": "Advanced PDF tools",
+         "loading-message": "Loading...",
+         "incognito-mode": "Incognito Mode",
+         "light-theme-alt": "Light Theme",
+--- a/UI/Web/src/assets/langs/zh_Hant.json
++++ b/UI/Web/src/assets/langs/zh_Hant.json
+@@ -488,6 +488,18 @@
+         "annotate": "註解"
+     },
+     "book-reader": {
++        "settings-alt": "閱讀設定",
++        "bookmarks-alt": "書籤",
++        "annotations-alt": "註記",
++        "contents-alt": "目錄與章節",
++        "more-options": "更多閱讀選項",
++        "load-error": "無法開啟這個章節",
++        "load-error-description": "請檢查連線或再試一次。",
++        "retry": "重試",
++        "return-to-library": "返回書庫",
++        "next-chapter": "下一章",
++        "previous-chapter": "上一章",
++        "chapter-loading": "正在開啟章節…",
+         "incognito-mode-label": "無痕模式",
+         "incognito-mode-alt": "無痕模式已開啟。切換以關閉。",
+         "page-label": "頁",
+@@ -2164,6 +2176,23 @@
+         "single": "單頁"
+     },
+     "pdf-reader": {
++        "settings-alt": "閱讀設定",
++        "bookmarks-alt": "書籤",
++        "annotations-alt": "註記",
++        "contents-alt": "目錄與章節",
++        "more-options": "更多閱讀選項",
++        "load-error": "無法開啟這個章節",
++        "load-error-description": "請檢查連線或再試一次。",
++        "retry": "重試",
++        "return-to-library": "返回書庫",
++        "next-chapter": "下一章",
++        "previous-chapter": "上一章",
++        "chapter-loading": "正在開啟章節…",
++        "page-number": "頁碼",
++        "fit-width": "符合頁寬",
++        "reading-complete": "已到最後一章",
++        "chapter-navigation-error": "無法載入章節導覽。",
++        "advanced-pdf-tools": "進階 PDF 工具",
+         "close-reader-alt": "關閉閱讀器",
+         "loading-message": "載入中...",
+         "incognito-mode": "無痕模式",
+--- a/UI/Web/src/assets/langs/zh_Hans.json
++++ b/UI/Web/src/assets/langs/zh_Hans.json
+@@ -497,6 +497,18 @@
+         "annotate": "注释"
+     },
+     "book-reader": {
++        "settings-alt": "阅读设置",
++        "bookmarks-alt": "书签",
++        "annotations-alt": "注记",
++        "contents-alt": "目录与章节",
++        "more-options": "更多阅读选项",
++        "load-error": "无法打开这个章节",
++        "load-error-description": "请检查连接或再试一次。",
++        "retry": "重试",
++        "return-to-library": "返回书库",
++        "next-chapter": "下一章",
++        "previous-chapter": "上一章",
++        "chapter-loading": "正在打开章节…",
+         "page-label": "页",
+         "go-to-page": "转到页面",
+         "skip-header": "跳转至主要内容",
+@@ -1443,6 +1455,23 @@
+         "promote-tooltip": "{{actionable.promote-tooltip}}"
+     },
+     "pdf-reader": {
++        "settings-alt": "阅读设置",
++        "bookmarks-alt": "书签",
++        "annotations-alt": "注记",
++        "contents-alt": "目录与章节",
++        "more-options": "更多阅读选项",
++        "load-error": "无法打开这个章节",
++        "load-error-description": "请检查连接或再试一次。",
++        "retry": "重试",
++        "return-to-library": "返回书库",
++        "next-chapter": "下一章",
++        "previous-chapter": "上一章",
++        "chapter-loading": "正在打开章节…",
++        "page-number": "页码",
++        "fit-width": "适合页宽",
++        "reading-complete": "已到最后一章",
++        "chapter-navigation-error": "无法加载章节导航。",
++        "advanced-pdf-tools": "高级 PDF 工具",
+         "loading-message": "加载中...",
+         "incognito-mode": "隐身模式",
+         "light-theme-alt": "明亮主题",

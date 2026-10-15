@@ -1,0 +1,80 @@
+{
+  "checks": [
+    "login to existing backend",
+    "EPUB mobile containment and 44px return control",
+    "EPUB visible buttons have accessible names",
+    "EPUB more menu has 44px text actions and Escape stays in reader",
+    "EPUB next page",
+    "EPUB page error retries the same page",
+    "EPUB info error and retry",
+    "direct EPUB close returns to its own series",
+    "PDF mobile containment and 44px return control",
+    "PDF page number control and Escape stay in reader",
+    "PDF desktop toolbar retained",
+    "PDF next chapter preserves incognito mode",
+    "PDF info error and retry",
+    "release smoke /home",
+    "release smoke /library/3",
+    "release smoke /theme",
+    "release smoke /settings"
+  ],
+  "failures": [],
+  "network": [
+    {
+      "path": "/api/image/user-cover",
+      "status": 404
+    },
+    {
+      "path": "/api/image/user-cover",
+      "status": 404
+    },
+    {
+      "path": "/api/book/8217/book-page",
+      "status": 500
+    },
+    {
+      "path": "/api/image/user-cover",
+      "status": 404
+    },
+    {
+      "path": "/api/book/8217/book-info",
+      "status": 500
+    },
+    {
+      "path": "/api/image/user-cover",
+      "status": 404
+    },
+    {
+      "path": "/api/image/user-cover",
+      "status": 404
+    },
+    {
+      "path": "/api/image/user-cover",
+      "status": 404
+    },
+    {
+      "path": "/api/image/user-cover",
+      "status": 404
+    },
+    {
+      "path": "/api/book/7946/book-info",
+      "status": 500
+    },
+    {
+      "path": "/api/image/user-cover",
+      "status": 404
+    },
+    {
+      "path": "/api/image/user-cover",
+      "status": 404
+    },
+    {
+      "path": "/api/image/user-cover",
+      "status": 404
+    },
+    {
+      "path": "/api/image/user-cover",
+      "status": 404
+    }
+  ]
+}

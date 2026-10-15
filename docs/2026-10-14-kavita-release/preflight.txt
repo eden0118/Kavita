@@ -1,0 +1,3 @@
+PASS candidate image, verification record and Compose configuration
+BLOCKED NAS mounts or media unavailable: /Volumes/Books, /Volumes/Comics
+Production has not been changed.

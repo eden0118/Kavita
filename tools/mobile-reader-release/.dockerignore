@@ -1,0 +1,6 @@
+**
+!Dockerfile
+!.build/
+!.build/wwwroot/
+!.build/wwwroot/**
+!.build/wwwroot.sha256

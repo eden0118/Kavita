@@ -1,5 +1,5 @@
 import http from 'node:http';import fs from 'node:fs';import path from 'node:path';
-const root=process.cwd()+'/UI/Web/dist/browser';
+const root=process.env.KAVITA_PREVIEW_ROOT || process.cwd()+'/UI/Web/dist/browser';
 const mime={'.html':'text/html','.js':'text/javascript','.mjs':'text/javascript','.json':'application/json','.css':'text/css','.png':'image/png','.svg':'image/svg+xml','.jpg':'image/jpeg','.woff2':'font/woff2','.wasm':'application/wasm'};
 const server=http.createServer((req,res)=>{
  if(req.url.startsWith('/api/')||req.url.startsWith('/hubs/')){

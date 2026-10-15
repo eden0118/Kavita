@@ -1,0 +1,6 @@
+services:
+  kavita:
+    image: kavita-local:0.9.1.4-mobile-reader-20261014
+    build:
+      context: ./tools/mobile-reader-release
+      dockerfile: Dockerfile

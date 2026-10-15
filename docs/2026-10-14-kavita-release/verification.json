@@ -1,0 +1,31 @@
+{
+  "official_commit": "879b8b73eb41d66f88dde8eb874cc99a3397eb11",
+  "archive_sha256": "ea21e7b4fda9e0923b59ea698265403a9188237721879c3dc0b4b96752447a33",
+  "patch_sha256": "2cc9c7bf944ded7b7367620f6c5941fe06f653ca22ca4a4ff2accd3e414c1fb5",
+  "frontend_manifest_sha256": "8b59acfb9991c9085271ac47e92d2527d4395969218380fbfcbb169026bcd1c0",
+  "frontend_files": 1245,
+  "base_image": "kavita-local:0.9.1.4-media-parser-fix",
+  "base_image_id": "sha256:2b5f6c8bb90b305e83ec3b2b25fc75aee1d6a0851a8ae084d586b648bc5efcec",
+  "image": "kavita-local:0.9.1.4-mobile-reader-20261014",
+  "image_id": "sha256:9d675c41e13776efdf482b603cf9e1b3e6f720acbf5296e16c913a591f717b64",
+  "node": "v26.8.1",
+  "npm": "11.19.0",
+  "database_migration": false,
+  "isolated_verification_passed": true,
+  "browser_checks_passed": 17,
+  "health_check": "200 Ok",
+  "backend_hashes_match_production": true,
+  "frontend_checksums_verified": true,
+  "media_fixture_type": "synthetic EPUB/PDF with cloned database; NAS unavailable",
+  "real_nas_media_verified": false,
+  "nas_required": [
+    "/Volumes/Books",
+    "/Volumes/Comics"
+  ],
+  "backup_path": "/Users/eden0118/Coding/Kavita/data/config/backups/mobile-reader-release-20261014-234703",
+  "production_switched": false,
+  "database_migration_history_unchanged": true,
+  "staging_database_check": "ok",
+  "preflight": "blocked by unavailable NAS mounts; candidate and compose checks passed",
+  "temporary_container_removed": true
+}
