@@ -8,7 +8,7 @@
 
 映像建置、容器健康檢查、17 項隔離瀏覽器測試通過；測試涵蓋閱讀器、首頁、書庫、主題與設定。測試使用資料庫副本及自行產生的 EPUB/PDF 素材，沒有改寫正式資料庫的書籍或閱讀進度。啟動前後 EF 資料庫遷移紀錄相同，副本的 SQLite quick_check 為 ok。
 
-**正式服務尚未切換。** 驗證時 NAS 未掛載，`/Volumes/Books`、`/Volumes/Comics` 都不可讀。上線工具會擋下此狀態，避免重建現有容器後無法掛載媒體。實際 NAS 書籍的候選映像閱讀驗證仍待 NAS 恢復。
+**正式服務尚未切換。** 2026-10-15 已恢復 Books、Comics 掛載，候選映像對實際 NAS EPUB/PDF 的 17 項瀏覽器測試也全部通過。上線工具仍會再次檢查掛載與檔案可讀性。新增指定路徑 `/Volumes/Reference/Book_References` 的用途尚待確認，目前沒有改動該路徑或原資料位置。
 
 完整證據在 [release report](../../docs/2026-10-14-kavita-release/README.md)。
 

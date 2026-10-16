@@ -1,3 +1,5 @@
 PASS candidate image, verification record and Compose configuration
-BLOCKED NAS mounts or media unavailable: /Volumes/Books, /Volumes/Comics
+PASS media files readable from /Volumes/Books
+PASS media files readable from /Volumes/Comics
+PASS existing production health; ready to apply on port 1314
 Production has not been changed.

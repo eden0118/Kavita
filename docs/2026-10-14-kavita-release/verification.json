@@ -16,8 +16,8 @@
   "health_check": "200 Ok",
   "backend_hashes_match_production": true,
   "frontend_checksums_verified": true,
-  "media_fixture_type": "synthetic EPUB/PDF with cloned database; NAS unavailable",
-  "real_nas_media_verified": false,
+  "media_fixture_type": "Real NAS EPUB/PDF with cloned database; earlier synthetic run also passed",
+  "real_nas_media_verified": true,
   "nas_required": [
     "/Volumes/Books",
     "/Volumes/Comics"
@@ -26,6 +26,12 @@
   "production_switched": false,
   "database_migration_history_unchanged": true,
   "staging_database_check": "ok",
-  "preflight": "blocked by unavailable NAS mounts; candidate and compose checks passed",
-  "temporary_container_removed": true
+  "preflight": "PASS: candidate image, compose, Books, Comics, current production health",
+  "temporary_container_removed": true,
+  "real_nas_browser_checks_passed": 17,
+  "nas_restored_on": "2026-10-15",
+  "reference_path": "/Volumes/Reference/Book_References",
+  "reference_path_purpose": "awaiting user clarification",
+  "real_nas_database_check": "ok",
+  "real_nas_migration_history_unchanged": true
 }
